@@ -9,7 +9,7 @@ let instance: AxiosInstance | null = null;
 
 const createInstance = () => {
   instance = new RequestInstantFactory({
-    baseURL: process.env.REACT_APP_API!,
+    baseURL: import.meta.env.VITE_APP_API!,
   }).getInstance();
 };
 

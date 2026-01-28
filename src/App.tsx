@@ -1,6 +1,6 @@
 import { useIdle, useNetworkState } from 'react-use';
 
-import SplitText from '@/components/ui/animate/SplitText';
+import SplitText from '@/components/ui/SplitText';
 
 import './App.css';
 
