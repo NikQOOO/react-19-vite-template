@@ -1,0 +1,148 @@
+/* Preview页面样式 */
+.container {
+  max-width: 600px;
+  padding: 20px;
+  background-color: #f0f2f5;
+}
+
+.title {
+  margin-bottom: 20px;
+  color: #333;
+}
+
+.info-message {
+  margin: 10px 0;
+  padding: 10px;
+  color: #1890ff;
+  background-color: #e6f7ff;
+  border-radius: 4px;
+}
+
+.file-input-container {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin: 20px 0;
+}
+
+.file-input {
+  flex: 1;
+}
+
+.upload-button {
+  padding: 8px 16px;
+  color: #fff;
+  background-color: #1890ff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.upload-button.disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
+.upload-button.enabled {
+  background-color: #1890ff;
+}
+
+.progress-container {
+  margin-top: 20px;
+  padding: 15px;
+  background-color: #fafafa;
+  border: 1px solid #e8e8e8;
+  border-radius: 4px;
+}
+
+.progress-bar-container {
+  height: 8px;
+  margin-bottom: 10px;
+  overflow: hidden;
+  background-color: #e8e8e8;
+  border-radius: 4px;
+}
+
+.progress-bar {
+  height: 100%;
+  background-color: #52c41a;
+  transition: width 0.3s ease;
+}
+
+.progress-text {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 5px;
+}
+
+.status-message {
+  margin: 10px 0;
+  color: #666;
+}
+
+.processing-progress {
+  margin: 15px 0;
+  padding: 10px;
+  background-color: #f6f8fa;
+  border: 1px solid #e1e4e8;
+  border-radius: 4px;
+}
+
+.processing-title {
+  margin-bottom: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #333;
+}
+
+.small-progress-bar {
+  height: 6px;
+  margin-bottom: 5px;
+  overflow: hidden;
+  background-color: #e8e8e8;
+  border-radius: 3px;
+}
+
+.hash-progress-bar {
+  height: 100%;
+  background-color: #1890ff;
+  transition: width 0.3s ease;
+}
+
+.chunks-progress-bar {
+  height: 100%;
+  background-color: #722ed1;
+  transition: width 0.3s ease;
+}
+
+.progress-labels {
+  display: flex;
+  justify-content: space-between;
+}
+
+.progress-label {
+  font-size: 12px;
+}
+
+.file-info {
+  margin: 15px 0;
+  padding: 15px;
+  background-color: #fafafa;
+  border: 1px solid #e8e8e8;
+  border-radius: 4px;
+}
+
+.file-info > div {
+  margin-bottom: 8px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.file-info > div:last-child {
+  margin-bottom: 0;
+}
+
+.file-info strong {
+  margin-right: 8px;
+  color: #333;
+}
