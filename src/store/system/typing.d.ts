@@ -16,6 +16,7 @@ declare namespace SystemStore {
   }
   interface IPlatformState {
     lang: TLang;
+    theme: string;
     collapse: boolean;
     breadcrumbList: IBreadcrumb[];
     isShowHeader: boolean;
@@ -23,6 +24,7 @@ declare namespace SystemStore {
   }
   interface IPlatformActions extends IClear {
     setLang: (lang: TLang) => void;
+    setTheme: (theme: string) => void;
     setCollapse: (collapse: boolean) => void;
     setBreadcrumb: (breadcrumbList: IBreadcrumb[], isShowHeaderLine?: boolean) => void;
     setIsShowHeader: (isShowHeader: boolean) => void;

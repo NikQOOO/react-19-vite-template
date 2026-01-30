@@ -6,6 +6,7 @@ import StoreConstants from '../constants';
 
 const platformInitialState: SystemStore.IPlatformState = {
   lang: 'en-US',
+  theme: 'light',
   collapse: false,
   breadcrumbList: [],
   isShowHeader: true,
@@ -31,6 +32,10 @@ const usePlatformStore = create(
         } else {
           state.isShowHeaderLine = false;
         }
+      }),
+    setTheme: (theme) =>
+      set((state) => {
+        state.theme = theme;
       }),
     setCollapse: (collapse) =>
       set((state) => {
