@@ -49,7 +49,11 @@ export async function setWithMeta<T>(
  * @param opts.version 期望的数据版本号
  * @returns 返回缓存的数据，如果不存在、版本不匹配或已过期则返回 null
  */
-export async function getWithMeta<T>(store: LocalForage, key: string, opts: { version: number }): Promise<T | null> {
+export async function getWithMeta<T>(
+  store: LocalForage,
+  key: string,
+  opts: { version: number },
+): Promise<T | null> {
   const payload = await store.getItem<CacheEnvelope<T>>(key);
 
   // 缓存不存在

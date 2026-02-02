@@ -42,7 +42,9 @@ const usePlatformStore = create(
         state.collapse = collapse;
       }),
     reset: () => {
-      set(platformInitialState);
+      set((state) => {
+        Object.assign(state, platformInitialState);
+      });
     },
   })),
 );
@@ -85,7 +87,9 @@ const useUserStore = create(
           state.auth = auth;
         }),
       reset: () => {
-        set(userInitialState);
+        set((state) => {
+          Object.assign(state, userInitialState);
+        });
       },
     })),
     {

@@ -1,11 +1,13 @@
 import localforage from 'localforage';
 
+const DB_NAME = 'app-db';
+
 export const draftStore = localforage.createInstance({
-  name: 'app-db',
+  name: DB_NAME,
   storeName: 'draft',
 });
 
 export const cacheStore = localforage.createInstance({
-  name: 'app-db',
+  name: DB_NAME,
   storeName: 'cache',
 });
