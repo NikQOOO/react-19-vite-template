@@ -4,6 +4,10 @@ import qs from 'qs';
 
 import RequestInstantFactory from './request';
 
+// 导出管理器供外部使用
+export { refreshManager } from '@/utils/request/refreshManager';
+export { requestCancelManager } from '@/utils/request/requestCancelManager';
+
 /**请求实例 */
 let instance: AxiosInstance | null = null;
 
@@ -13,29 +17,33 @@ const createInstance = () => {
   }).getInstance();
 };
 
-// 失败重连3次 react-query 已有
-// axiosRetry(instance, { retries: 3 });
+/**
+ * 通用请求方法
+ * 已集成请求取消管理器和 token 刷新机制
+ *
+ * @param url - 请求地址
+ * @param config - axios 配置项
+ * @returns 响应数据
+ *
+ * @example
+ * const data = await request<User>('/api/user', { method: 'GET' });
+ */
 export const request = async <T>(url: string, config?: AxiosRequestConfig): Promise<T> => {
   if (!instance) {
     createInstance();
   }
 
-  const cancelTokenSource = axios.CancelToken.source();
-
   try {
-    const { data } = await instance!.request({
+    const { data } = await instance!.request<T>({
       url,
       ...config,
-      cancelToken: cancelTokenSource.token,
     });
     return data;
   } catch (error) {
     if (axios.isCancel(error)) {
-      console.error('Request canceled', error.message);
-    } else {
-      throw error;
+      console.error('Request canceled:', error.message);
     }
-    return Promise.reject(error);
+    throw error;
   }
 };
 
