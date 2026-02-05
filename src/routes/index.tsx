@@ -9,7 +9,9 @@ import LazyLoad from './loader/lazy-load';
 import MainRoutes from './main';
 import PlainRoutes from './Plain';
 
-const router = createBrowserRouter([
+import type { TRouteObject } from './typing';
+
+export const rootRoutes = [
   {
     path: '/',
     element: <MainLayout />,
@@ -30,6 +32,8 @@ const router = createBrowserRouter([
     path: '404',
     element: LazyLoad(lazy(() => import('@/components/RedirectPage/NotFoundPage'))),
   },
-]);
+] as TRouteObject[];
+
+const router = createBrowserRouter(rootRoutes);
 
 export default router;

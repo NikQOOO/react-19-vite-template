@@ -1,13 +1,13 @@
 import { lazy } from 'react';
-import type { RouteObject } from 'react-router';
 
 import AuthLoader from './loader/auth-loader';
 import LazyLoad from './loader/lazy-load';
 
-const MainRoutes: RouteObject[] = [
+import type { TRouteObject } from './typing';
+
+const MainRoutes: TRouteObject[] = [
   {
     index: true,
-    path: '/',
     element: LazyLoad(lazy(() => import('@/views/home'))),
   },
   {

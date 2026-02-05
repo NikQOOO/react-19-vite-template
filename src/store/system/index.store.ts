@@ -14,39 +14,45 @@ const platformInitialState: SystemStore.IPlatformState = {
 };
 
 const usePlatformStore = create(
-  immer<SystemStore.IPlatformState & SystemStore.IPlatformActions>((set) => ({
-    ...platformInitialState,
-    setIsShowHeader: (isShowHeader) =>
-      set((state) => {
-        state.isShowHeader = isShowHeader;
-      }),
-    setLang: (lang) =>
-      set((state) => {
-        state.lang = lang;
-      }),
-    setBreadcrumb: (breadcrumbList, isShowHeaderLine) =>
-      set((state) => {
-        state.breadcrumbList = breadcrumbList;
-        if (isShowHeaderLine === undefined || isShowHeaderLine) {
-          state.isShowHeaderLine = true;
-        } else {
-          state.isShowHeaderLine = false;
-        }
-      }),
-    setTheme: (theme) =>
-      set((state) => {
-        state.theme = theme;
-      }),
-    setCollapse: (collapse) =>
-      set((state) => {
-        state.collapse = collapse;
-      }),
-    reset: () => {
-      set((state) => {
-        Object.assign(state, platformInitialState);
-      });
+  persist(
+    immer<SystemStore.IPlatformState & SystemStore.IPlatformActions>((set) => ({
+      ...platformInitialState,
+      setIsShowHeader: (isShowHeader) =>
+        set((state) => {
+          state.isShowHeader = isShowHeader;
+        }),
+      setLang: (lang) =>
+        set((state) => {
+          state.lang = lang;
+        }),
+      setBreadcrumb: (breadcrumbList, isShowHeaderLine) =>
+        set((state) => {
+          state.breadcrumbList = breadcrumbList;
+          if (isShowHeaderLine === undefined || isShowHeaderLine) {
+            state.isShowHeaderLine = true;
+          } else {
+            state.isShowHeaderLine = false;
+          }
+        }),
+      setTheme: (theme) =>
+        set((state) => {
+          state.theme = theme;
+        }),
+      setCollapse: (collapse) =>
+        set((state) => {
+          state.collapse = collapse;
+        }),
+      reset: () => {
+        set((state) => {
+          Object.assign(state, platformInitialState);
+        });
+      },
+    })),
+    {
+      name: StoreConstants.PLATFORM_SYSTEM_STORE,
+      storage: createJSONStorage(() => localStorage),
     },
-  })),
+  ),
 );
 
 const userInitialState: SystemStore.IUserState = {

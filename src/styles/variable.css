@@ -16,17 +16,17 @@
 
 :root {
   --font:
-    'HarmonyOS_Sans_Regular', 'PingFangSC-Regular', -apple-system, 'BlinkMacSystemFont', 'Segoe UI', 'PingFang SC',
-    'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', 'Helvetica', 'Arial', sans-serif, 'Apple Color Emoji',
-    'Segoe UI Emoji', 'Segoe UI Symbol';
+    'HarmonyOS_Sans_Regular', 'PingFangSC-Regular', -apple-system, 'BlinkMacSystemFont', 'Segoe UI',
+    'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', 'Helvetica', 'Arial',
+    sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';
   --font-US:
-    'Press Start 2P', 'PingFangSC-Regular', -apple-system, 'BlinkMacSystemFont', 'Segoe UI', 'PingFang SC',
-    'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', 'Helvetica', 'Arial', sans-serif, 'Apple Color Emoji',
-    'Segoe UI Emoji', 'Segoe UI Symbol';
+    'Press Start 2P', 'PingFangSC-Regular', -apple-system, 'BlinkMacSystemFont', 'Segoe UI',
+    'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', 'Helvetica', 'Arial',
+    sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';
   --font-bold:
-    'HarmonyOS_Sans_Bold', 'PingFangSC-Semibold', -apple-system, 'BlinkMacSystemFont', 'Segoe UI', 'PingFang SC',
-    'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', 'Helvetica', 'Arial', sans-serif, 'Apple Color Emoji',
-    'Segoe UI Emoji', 'Segoe UI Symbol';
+    'HarmonyOS_Sans_Bold', 'PingFangSC-Semibold', -apple-system, 'BlinkMacSystemFont', 'Segoe UI',
+    'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', 'Helvetica', 'Arial',
+    sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';
   --theme-color: #39c5bb;
   --color-font: #414f73;
   --color-title: #0c1a40;
@@ -34,4 +34,5 @@
   --color-danger: #ff5824;
   --color-info: #7a85a2;
   --bg-color: #fff;
+  --side-bar-bg-color: #454284;
 }
