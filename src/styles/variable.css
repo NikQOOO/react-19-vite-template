@@ -28,11 +28,13 @@
     'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', 'Helvetica', 'Arial',
     sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';
   --theme-color: #39c5bb;
-  --color-font: #414f73;
-  --color-title: #0c1a40;
+  --color-font: #392f41;
+  --color-title: #161823;
   --color-primary: #39c5bb;
-  --color-danger: #ff5824;
-  --color-info: #7a85a2;
-  --bg-color: #fff;
-  --side-bar-bg-color: #454284;
+  --color-danger: #c91f37;
+  --color-success: #0eb840;
+  --color-warning: #fa8c35;
+  --color-info: #7397ab;
+  --bg-color: #d1d9e0;
+  --side-bar-bg-color: #395260;
 }

@@ -13,6 +13,11 @@ body {
   background-color: var(--bg-color);
 }
 
+::selection {
+  background-color: var(--theme-color);
+  color: #fff;
+}
+
 html[lang='zh-HK'] body,
 html[lang='zh-TW'] body {
   font-family: var(--font-HK);
