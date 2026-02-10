@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from 'react';
 
-import { request } from '@/services/request';
+import { request } from '@/services/http';
 import { calculateFileHashSync, createFileChunksSync } from '@/utils/fileHashHelper';
 
 import FileInfo from './FileInfo';
@@ -35,7 +35,9 @@ const PreviewPage: React.FC = () => {
   const [file, setFile] = useState<File | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [statusMessage, setStatusMessage] = useState('');
-  const [fileInfo, setFileInfo] = useState<{ name: string; size: number; type: string } | null>(null);
+  const [fileInfo, setFileInfo] = useState<{ name: string; size: number; type: string } | null>(
+    null,
+  );
   const [hashProgress, setHashProgress] = useState(0);
   const [chunksProgress, setChunksProgress] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -313,11 +315,19 @@ const PreviewPage: React.FC = () => {
 
         // 显示已经上传的分片信息
         if (uploadedChunks.length > 0) {
-          setStatusMessage(`检测到${uploadedChunks.length}个分片已上传，继续上传剩余${chunksToUpload.length}个分片...`);
+          setStatusMessage(
+            `检测到${uploadedChunks.length}个分片已上传，继续上传剩余${chunksToUpload.length}个分片...`,
+          );
         }
 
         // 6. 并发上传所有分片
-        await uploadChunksWithConcurrency(chunksToUpload, fileHash, file.name, chunkLoaded, updateProgress);
+        await uploadChunksWithConcurrency(
+          chunksToUpload,
+          fileHash,
+          file.name,
+          chunkLoaded,
+          updateProgress,
+        );
       }
 
       // 7. 所有分片上传完成，请求服务器合并文件
@@ -347,7 +357,9 @@ const PreviewPage: React.FC = () => {
     <div className={styles.container}>
       <h2 className={styles.title}>大文件上传（主线程版本 - 无Web Worker）</h2>
 
-      <div className={styles['info-message']}>ℹ️ 此版本在主线程处理文件，大文件可能导致页面暂时无响应</div>
+      <div className={styles['info-message']}>
+        ℹ️ 此版本在主线程处理文件，大文件可能导致页面暂时无响应
+      </div>
 
       <div className={styles['file-input-container']}>
         <input type="file" onChange={handleFileChange} className={styles['file-input']} />
@@ -384,7 +396,10 @@ const PreviewPage: React.FC = () => {
               {hashProgress > 0 && (
                 <div style={{ marginBottom: '10px' }}>
                   <div className={styles['small-progress-bar']}>
-                    <div className={styles['hash-progress-bar']} style={{ width: `${hashProgress}%` }} />
+                    <div
+                      className={styles['hash-progress-bar']}
+                      style={{ width: `${hashProgress}%` }}
+                    />
                   </div>
                   <div className={styles['progress-labels']}>
                     <span className={styles['progress-label']}>哈希计算</span>
@@ -397,7 +412,10 @@ const PreviewPage: React.FC = () => {
               {chunksProgress > 0 && (
                 <div>
                   <div className={styles['small-progress-bar']}>
-                    <div className={styles['chunks-progress-bar']} style={{ width: `${chunksProgress}%` }} />
+                    <div
+                      className={styles['chunks-progress-bar']}
+                      style={{ width: `${chunksProgress}%` }}
+                    />
                   </div>
                   <div className={styles['progress-labels']}>
                     <span className={styles['progress-label']}>分片创建</span>
