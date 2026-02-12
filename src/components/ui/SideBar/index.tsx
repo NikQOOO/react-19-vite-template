@@ -10,7 +10,7 @@ import { useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 import { useLocation, useNavigate } from 'react-router';
 
-import mainRoutes from '@/routes/main';
+import { rootRoutes } from '@/routes';
 
 import type { TRouteObject } from '@/routes/typing';
 import type { MenuProps } from 'antd';
@@ -29,6 +29,7 @@ type MenuItem = Required<MenuProps>['items'][number];
 interface INestMenu {
   path: string;
   key: string;
+  icon?: string;
   children?: INestMenu[];
 }
 
@@ -50,7 +51,14 @@ function getItem(
 
 const ICON_MAPPING: Record<string, React.ReactElement> = {
   dashboard: <HomeOutlined />,
-  toxicologyIND: <FileTextOutlined />,
+  edit: <FileTextOutlined />,
+};
+
+const getIconByName = (iconName?: string): React.ReactElement | null => {
+  if (!iconName || !(iconName in ICON_MAPPING)) {
+    return null;
+  }
+  return ICON_MAPPING[iconName];
 };
 
 const SideBar: React.FC<Layout.ISideProps> = (props) => {
@@ -85,9 +93,11 @@ const SideBar: React.FC<Layout.ISideProps> = (props) => {
         .filter((item) => !item.meta?.hideInMenu)
         .map((payload) => {
           const item = payload;
+          const menuKey = item.meta?.key || item.path || '';
           const params: INestMenu = {
             path: item.path || '',
-            key: `${selfPrefix}${item.path || ''}`,
+            key: `${selfPrefix}${menuKey}`,
+            icon: item.meta?.icon,
           };
           if (item.children) {
             params.children = composeRecursive(item.children, item.path || '');
@@ -110,11 +120,9 @@ const SideBar: React.FC<Layout.ISideProps> = (props) => {
             return;
           }
           let icon: JSX.Element | null = null;
-          // 路由的 key 匹配映射表中的 key，value 对应 iconfont 的 class
-          if (root && item.key in ICON_MAPPING) {
-            // if (selectedPath.length > 0 && item.key === selectedPath[0]) {
-            // }
-            icon = ICON_MAPPING[item.key];
+          // 如果是根菜单且有图标配置，则显示图标
+          if (root && item.icon) {
+            icon = getIconByName(item.icon);
           }
           if (item.children && item.children.length > 0) {
             rst.push(
@@ -146,9 +154,9 @@ const SideBar: React.FC<Layout.ISideProps> = (props) => {
 
   const items: MenuItem[] = useMemo(() => {
     let menu: INestMenu[] = [];
-    const menuOriginList = mainRoutes.find((item) => item.meta?.key === 'main-layout');
-    if (menuOriginList && menuOriginList.children) {
-      menu = composeMenuData(menuOriginList.children.slice(0, -1), '');
+    const mainLayout = rootRoutes.find((item) => item.meta?.key === 'main-layout');
+    if (mainLayout && mainLayout.children) {
+      menu = composeMenuData(mainLayout.children, '');
     }
 
     return composeMenu(menu, true);
