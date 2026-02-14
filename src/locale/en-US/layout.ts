@@ -10,6 +10,7 @@ const layout: Record<string, string> = {
 
   // System common
   'layout.logout': 'Logout',
+  'layout.toggleTheme': 'Toggle Theme',
   'layout.language': 'Language',
   'layout.language.chinese': '简体中文',
   'layout.language.english': 'English',

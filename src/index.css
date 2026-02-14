@@ -40,18 +40,18 @@ body {
   }
 
   &::-webkit-scrollbar-track {
-    background: #fff;
+    background: var(--scrollbar-track);
     border-radius: 8px;
   }
 
   &::-webkit-scrollbar-thumb {
-    background-color: #d6d9e4;
+    background-color: var(--scrollbar-thumb);
     border: none;
     border-radius: 8px;
   }
 
   &::-webkit-scrollbar-thumb:hover {
-    background-color: #d6d9e4;
+    background-color: var(--scrollbar-thumb-hover);
   }
 }
 
@@ -62,17 +62,5 @@ a {
 
 a:hover {
   color: var(--theme-color);
-}
-
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
-  a:hover {
-    color: var(--theme-color);
-  }
-  button {
-    background-color: #f9f9f9;
-  }
+  opacity: 0.8;
 }
