@@ -2,8 +2,6 @@ import { useIdle, useNetworkState } from 'react-use';
 
 import SplitText from '@/components/ui/SplitText';
 
-import Editor from '../editor/components/LexicalEditor';
-
 const HomePage = () => {
   // =================== hooks ===================
   const isIdle = useIdle(5000, false);
@@ -14,7 +12,6 @@ const HomePage = () => {
   };
   return (
     <div>
-      <Editor />
       <div>
         <h3>{isIdle ? 'User is idle' : 'User is active'}</h3>
         <br />

@@ -1,9 +1,10 @@
+import { Typography } from 'antd';
 import { Outlet } from 'react-router';
 
 const Test = () => {
   return (
     <div>
-      <h1>Test Page</h1>
+      <Typography.Title level={1}>Demo</Typography.Title>
       <Outlet />
     </div>
   );
