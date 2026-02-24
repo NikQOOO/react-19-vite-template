@@ -10,6 +10,7 @@ const layout: Record<string, string> = {
 
   // 系统通用
   'layout.logout': '退出登录',
+  'layout.toggleTheme': '切换主题',
   'layout.language': '语言',
   'layout.language.chinese': '简体中文',
   'layout.language.english': 'English',

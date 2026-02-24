@@ -1,13 +1,17 @@
-import { GlobalOutlined } from '@ant-design/icons';
-import type { MenuProps } from 'antd';
+import { GlobalOutlined, MoonOutlined, SunOutlined } from '@ant-design/icons';
 import { Dropdown, Space } from 'antd';
 import { useCallback, useEffect, useMemo } from 'react';
 import { useShallow } from 'zustand/react/shallow';
-
+// context
+import { useTheme } from '@/common/contexts';
+// store
 import loadLocale from '@/locale';
-import { logout } from '@/services/api';
 import { usePlatformStore, useUserStore } from '@/store/system/index.store';
-
+// services
+import { logout } from '@/services/api';
+// type
+import type { MenuProps } from 'antd';
+// style
 import { Container, MyAvatar } from './style';
 
 const TopBar = () => {
@@ -26,6 +30,7 @@ const TopBar = () => {
     })),
   );
 
+  const { theme, toggleTheme } = useTheme();
   const { message } = useMemo(() => loadLocale(lang), [lang]);
 
   const handleLogout = useCallback(() => {
@@ -79,6 +84,19 @@ const TopBar = () => {
   return (
     <Container>
       <Space size={16} style={{ userSelect: 'none' }}>
+        <Dropdown
+          placement="bottom"
+          arrow
+          menu={{
+            items: [
+              { key: 'toggle-theme', label: message['layout.toggleTheme'], onClick: toggleTheme },
+            ],
+          }}
+        >
+          <Space size={8} style={{ height: 32, cursor: 'pointer' }}>
+            {theme === 'dark' ? <MoonOutlined /> : <SunOutlined />}
+          </Space>
+        </Dropdown>
         <Dropdown
           placement="bottom"
           arrow

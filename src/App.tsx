@@ -1,9 +1,10 @@
-import { ConfigProvider } from 'antd';
+import { ConfigProvider, theme as antdTheme } from 'antd';
 import antdEnUS from 'antd/locale/en_US';
 import antdZhCN from 'antd/locale/zh_CN';
 import { IntlProvider } from 'react-intl';
 import { RouterProvider } from 'react-router';
 
+import { ThemeProvider, useTheme } from './common/contexts';
 import loadLocale from './locale';
 import router from './routes';
 import { usePlatformStore } from './store/system/index.store';
@@ -15,7 +16,8 @@ const intlMapping = {
   'en-US': antdEnUS,
 };
 
-const theme: ThemeConfig = {
+const getThemeConfig = (isDark: boolean): ThemeConfig => ({
+  algorithm: isDark ? antdTheme.darkAlgorithm : antdTheme.defaultAlgorithm,
   token: {
     colorPrimary: '#39c5bb',
     colorSuccess: '#06bf9c',
@@ -33,13 +35,13 @@ const theme: ThemeConfig = {
     Menu: {
       collapsedWidth: 50,
       itemBg: 'transparent',
-      itemColor: 'rgba(255, 255, 255, 0.7)',
+      itemColor: isDark ? 'rgba(255, 255, 255, 0.7)' : 'rgba(0, 0, 0, 0.7)',
       itemHoverBg: 'transparent',
-      itemHoverColor: 'rgba(255, 255, 255, 0.7)',
+      itemHoverColor: isDark ? 'rgba(255, 255, 255, 0.7)' : 'rgba(0, 0, 0, 0.7)',
       itemActiveBg: 'transparent',
       itemSelectedColor: '#fff',
       itemSelectedBg: '#39c5bb',
-      popupBg: '#2E3540',
+      popupBg: isDark ? '#2E3540' : '#ffffff',
       subMenuItemBorderRadius: 6,
       subMenuItemBg: 'transparent',
     },
@@ -50,20 +52,34 @@ const theme: ThemeConfig = {
       iconSizeSM: 14,
     },
   },
-};
+});
 
-function App() {
+function AppContent() {
   const lang = usePlatformStore((state) => state.lang);
   const { locale, message } = loadLocale(lang);
+  const { theme } = useTheme();
+
+  const isDark = theme === 'dark';
 
   return (
     <div id="app">
       <IntlProvider messages={message} defaultLocale="en-US" locale={locale}>
-        <ConfigProvider theme={theme} locale={intlMapping[locale as 'zh-CN' | 'en-US']}>
+        <ConfigProvider
+          theme={getThemeConfig(isDark)}
+          locale={intlMapping[locale as 'zh-CN' | 'en-US']}
+        >
           <RouterProvider router={router} />
         </ConfigProvider>
       </IntlProvider>
     </div>
+  );
+}
+
+function App() {
+  return (
+    <ThemeProvider>
+      <AppContent />
+    </ThemeProvider>
   );
 }
 
