@@ -83,12 +83,8 @@ const SideBar: React.FC<Layout.ISideProps> = (props) => {
   };
 
   /** 组合左侧菜单数据 */
-  const composeMenuData = useCallback((originList: TRouteObject[], prefix: string): INestMenu[] => {
-    const composeRecursive = (list: TRouteObject[], pfx: string): INestMenu[] => {
-      let selfPrefix = pfx;
-      if (selfPrefix) {
-        selfPrefix += '-';
-      }
+  const composeMenuData = useCallback((originList: TRouteObject[]): INestMenu[] => {
+    const composeRecursive = (list: TRouteObject[]): INestMenu[] => {
       const nestMenu = list
         .filter((item) => !item.meta?.hideInMenu)
         .map((payload) => {
@@ -96,17 +92,17 @@ const SideBar: React.FC<Layout.ISideProps> = (props) => {
           const menuKey = item.meta?.key || item.path || '';
           const params: INestMenu = {
             path: item.path || '',
-            key: `${selfPrefix}${menuKey}`,
+            key: menuKey,
             icon: item.meta?.icon,
           };
           if (item.children) {
-            params.children = composeRecursive(item.children, item.path || '');
+            params.children = composeRecursive(item.children);
           }
           return params;
         });
       return nestMenu;
     };
-    return composeRecursive(originList, prefix);
+    return composeRecursive(originList);
   }, []);
 
   /** 组合菜单 */
@@ -156,7 +152,7 @@ const SideBar: React.FC<Layout.ISideProps> = (props) => {
     let menu: INestMenu[] = [];
     const mainLayout = rootRoutes.find((item) => item.meta?.key === 'main-layout');
     if (mainLayout && mainLayout.children) {
-      menu = composeMenuData(mainLayout.children, '');
+      menu = composeMenuData(mainLayout.children);
     }
 
     return composeMenu(menu, true);

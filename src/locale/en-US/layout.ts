@@ -4,9 +4,9 @@ const layout: Record<string, string> = {
   'layout.menu.home': 'Home',
   'layout.menu.editor': 'Editor',
   'layout.menu.test': 'Test',
-  'layout.menu.test-demo1': 'Demo 1',
-  'layout.menu.test-demo2': 'Demo 2',
-  'layout.menu.test-demo3': 'Demo 3',
+  'layout.menu.demo1': 'Demo 1',
+  'layout.menu.demo2': 'Demo 2',
+  'layout.menu.demo3': 'Demo 3',
 
   // System common
   'layout.logout': 'Logout',

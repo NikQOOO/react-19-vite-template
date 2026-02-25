@@ -4,9 +4,9 @@ const layout: Record<string, string> = {
   'layout.menu.home': '首页',
   'layout.menu.editor': '编辑器',
   'layout.menu.test': '测试',
-  'layout.menu.test-demo1': '演示1',
-  'layout.menu.test-demo2': '演示2',
-  'layout.menu.test-demo3': '演示3',
+  'layout.menu.demo1': '演示1',
+  'layout.menu.demo2': '演示2',
+  'layout.menu.demo3': '演示3',
 
   // 系统通用
   'layout.logout': '退出登录',
