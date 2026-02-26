@@ -90,7 +90,7 @@ export default defineConfig(({ mode }) => {
       rollupOptions: {
         // experimentalLogSideEffects: true, // 注释掉以减少副作用警告
         output: {
-          experimentalMinChunkSize: 1024, // 最小块大小
+          // experimentalMinChunkSize: 1024, // 最小块大小
           chunkFileNames: 'assets/js/[name]-[hash].js',
           assetFileNames: 'assets/[ext]/[name]-[hash].[ext]',
           manualChunks: (id: string) => {
@@ -195,7 +195,7 @@ export default defineConfig(({ mode }) => {
         mangle: {
           safari10: true,
         },
-        output: {
+        format: {
           comments: false,
         },
       },

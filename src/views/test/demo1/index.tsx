@@ -1,315 +1,178 @@
-import { Button, Card, Col, Divider, Input, Progress, Row, Space, Tag, Typography } from 'antd';
-import { useCallback, useEffect, useRef, useState } from 'react';
+﻿import { Button, Card, Col, Divider, Input, Progress, Row, Space, Tag, Typography } from 'antd';
+import { useEffect, useRef, useState } from 'react';
 
-type MainToWorkerMessage = {
-  id: number;
-  type: 'echo' | 'ping';
-  payload: string;
-  sentAt: number;
+import type { MainToWorkerMsg, WorkerToMainMsg } from './types';
+
+/** 对比演示用的任务时长 5 秒 */
+const TASK_MS = 5_000;
+/** 每个 Time Slice 分片占用主线程的预算 */
+const SLICE_BUDGET_MS = 20;
+
+/** 持续占用 CPU 直到耗尽目标时长 */
+const burnCpu = (ms: number) => {
+  const start = performance.now();
+  let seed = 0;
+  // Math.sqrt 是个相对耗时的操作，可以更明显地模拟 CPU 密集型任务
+  while (performance.now() - start < ms) seed += Math.sqrt((seed + 1) % 10_000);
 };
 
-type WorkerToMainMessage = {
-  id?: number;
-  type: 'ready' | 'echo-result' | 'error';
-  payload: string;
-  duration?: number;
-};
+const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
-type LogItem = {
-  id: number;
-  from: 'main' | 'worker';
-  text: string;
-};
-
-const DEMO_TASK_TOTAL_MS = 5_000;
-const TIMESLICE_BUDGET_MS = 20;
+const fmt = (ms: number | null) => (ms !== null ? `${ms.toFixed(0)} ms` : '—');
 
 const Demo1 = () => {
-  // ===================== State =====================
-  // 主线程输入框内容
-  const [payload, setPayload] = useState('');
-  // 展示在页面上的通信日志
-  const [logs, setLogs] = useState<LogItem[]>([]);
-  // 通过 worker 的 ready 消息驱动 UI 状态
+  // --- ① 阻塞 ---
+  const [blockDuration, setBlockDuration] = useState<number | null>(null);
+  const [blockRunning, setBlockRunning] = useState(false);
+
+  // --- ② Time Slice ---
+  const [sliceDuration, setSliceDuration] = useState<number | null>(null);
+  const [sliceProgress, setSliceProgress] = useState(0);
+  const [sliceRunning, setSliceRunning] = useState(false);
+  const cancelSliceRef = useRef(false);
+
+  // --- ③ Worker ---
+  const [workerDuration, setWorkerDuration] = useState<number | null>(null);
+  const [workerRunning, setWorkerRunning] = useState(false);
   const [isWorkerReady, setIsWorkerReady] = useState(false);
-  // 阻塞示例输入框
-  const [blockingInput, setBlockingInput] = useState('');
-  // 分片示例输入框
-  const [timesliceInput, setTimesliceInput] = useState('');
-  // 同步阻塞方案耗时
-  const [blockingDuration, setBlockingDuration] = useState<number | null>(null);
-  // 时间分片方案耗时
-  const [timesliceDuration, setTimesliceDuration] = useState<number | null>(null);
-  // 时间分片进度（0-100）
-  const [timesliceProgress, setTimesliceProgress] = useState(0);
-  // 时间分片是否运行中
-  const [isTimesliceRunning, setIsTimesliceRunning] = useState(false);
-
-  // 持有 worker 实例，避免重复创建
   const workerRef = useRef<Worker | null>(null);
-  // 生成递增消息 id，便于在日志中定位请求/响应
-  const messageIdRef = useRef(1);
-  // 时间分片取消标记（组件卸载时停止后续切片）
-  const cancelTimesliceRef = useRef(false);
 
-  // ===================== Events =====================
-  // 统一追加日志入口，后续若要做格式化可集中处理
-  const appendLog = useCallback((nextLog: LogItem) => {
-    setLogs((prev) => [...prev, nextLog]);
-  }, []);
+  /** ① 同步阻塞主线程执行任务 */
+  const runBlocking = () => {
+    setBlockRunning(true);
+    setBlockDuration(null);
+    // 用 setTimeout(0) 让 loading 状态先渲染，再进入阻塞
+    setTimeout(() => {
+      const start = performance.now();
+      burnCpu(TASK_MS);
+      setBlockDuration(performance.now() - start);
+      setBlockRunning(false);
+    }, 0);
+  };
 
-  // 绑定 worker 事件，处理来自 worker 的消息和错误
-  const bindWorkerEvents = useCallback(
-    (worker: Worker) => {
-      // 监听 worker 返回消息（ready / echo-result / error）
-      worker.onmessage = (event: MessageEvent<WorkerToMainMessage>) => {
-        const data = event.data;
-
-        // ready 是初始化握手完成信号
-        if (data.type === 'ready') {
-          setIsWorkerReady(true);
-          appendLog({
-            id: Date.now(),
-            from: 'worker',
-            text: data.payload,
-          });
-          return;
-        }
-
-        appendLog({
-          id: data.id ?? Date.now(),
-          from: 'worker',
-          text: `${data.payload}${typeof data.duration === 'number' ? ` (${data.duration.toFixed(2)}ms)` : ''}`,
-        });
-      };
-
-      // worker 运行时错误（比如语法错误、未捕获异常）
-      worker.onerror = () => {
-        appendLog({
-          id: Date.now(),
-          from: 'worker',
-          text: 'worker runtime error, please refresh page.',
-        });
-        setIsWorkerReady(false);
-      };
-
-      // postMessage 的数据结构无法被正确序列化/反序列化时触发
-      worker.onmessageerror = () => {
-        appendLog({
-          id: Date.now(),
-          from: 'worker',
-          text: 'worker message parsing failed.',
-        });
-      };
-
-      // 主线程启动后主动发 ping，与 worker 做一次握手
-      const pingMessage: MainToWorkerMessage = {
-        id: 0,
-        type: 'ping',
-        payload: 'init',
-        sentAt: Date.now(),
-      };
-      worker.postMessage(pingMessage);
-    },
-    [appendLog],
-  );
-
-  // ===================== Handlers =====================
-  // 发送消息到 worker，触发 echo 场景
-  const handleSendMessage = useCallback(() => {
-    const normalized = payload.trim();
-
-    // 输入为空、worker 未初始化或还没 ready 时不发送
-    if (!normalized || !workerRef.current || !isWorkerReady) {
-      return;
-    }
-
-    const id = messageIdRef.current++;
-    const data: MainToWorkerMessage = {
-      id,
-      type: 'echo',
-      payload: normalized,
-      sentAt: Date.now(),
-    };
-
-    appendLog({
-      id,
-      from: 'main',
-      text: `sent -> ${normalized}`,
-    });
-
-    workerRef.current.postMessage(data);
-    setPayload('');
-  }, [appendLog, isWorkerReady, payload]);
-
-  // 清空页面日志，便于重新观察本轮交互
-  const clearLogs = useCallback(() => {
-    setLogs([]);
-  }, []);
-
-  // 持续占用 CPU 一段时间，用于演示主线程阻塞
-  const burnCpu = useCallback((budgetMs: number) => {
-    const started = performance.now();
-    let seed = 0;
-
-    while (performance.now() - started < budgetMs) {
-      seed += Math.sqrt((seed + 1) % 10_000);
-    }
-
-    return seed;
-  }, []);
-
-  // 同步方案：一次性运行约 5 秒，期间输入框会明显卡住
-  const runBlockingCase = useCallback(() => {
-    setBlockingDuration(null);
-    const startedAt = performance.now();
-    burnCpu(DEMO_TASK_TOTAL_MS);
-    setBlockingDuration(performance.now() - startedAt);
-  }, [burnCpu]);
-
-  // 时间分片方案：同样跑约 5 秒，但按 20ms 一片执行，片间让出主线程
-  const runTimesliceCase = useCallback(() => {
-    if (isTimesliceRunning) {
-      return;
-    }
-
-    cancelTimesliceRef.current = false;
-    setTimesliceProgress(0);
-    setTimesliceDuration(null);
-    setIsTimesliceRunning(true);
-
-    const startedAt = performance.now();
-
-    const runChunk = () => {
-      if (cancelTimesliceRef.current) {
-        setIsTimesliceRunning(false);
-        return;
+  /** ② 每隔 SLICE_BUDGET_MS 通过 setTimeout(0) 让出主线程 */
+  const runTimeSlice = async () => {
+    if (sliceRunning) return;
+    cancelSliceRef.current = false;
+    setSliceProgress(0);
+    setSliceDuration(null);
+    setSliceRunning(true);
+    const start = performance.now();
+    while (!cancelSliceRef.current) {
+      burnCpu(SLICE_BUDGET_MS);
+      const elapsed = performance.now() - start;
+      setSliceProgress(Math.min(100, Math.round((elapsed / TASK_MS) * 100)));
+      if (elapsed >= TASK_MS) {
+        setSliceDuration(elapsed);
+        break;
       }
+      await sleep(0);
+    }
+    setSliceRunning(false);
+  };
 
-      burnCpu(TIMESLICE_BUDGET_MS);
+  /** ③ 将任务派发到 Worker 独立线程 */
+  const runWorkerTask = () => {
+    if (!workerRef.current || workerRunning) return;
+    setWorkerRunning(true);
+    setWorkerDuration(null);
+    workerRef.current.postMessage({ durationMs: TASK_MS } satisfies MainToWorkerMsg);
+  };
 
-      const elapsed = performance.now() - startedAt;
-      const nextProgress = Math.min(100, Math.round((elapsed / DEMO_TASK_TOTAL_MS) * 100));
-      setTimesliceProgress(nextProgress);
-
-      if (elapsed < DEMO_TASK_TOTAL_MS) {
-        setTimeout(runChunk, 0);
-        return;
-      }
-
-      setTimesliceDuration(elapsed);
-      setIsTimesliceRunning(false);
-    };
-
-    runChunk();
-  }, [burnCpu, isTimesliceRunning]);
-
-  // 组件挂载时创建 worker，并绑定事件；卸载时销毁 worker
   useEffect(() => {
-    // 组件挂载时只创建一个 worker
     const worker = new Worker(new URL('./worker.ts', import.meta.url), {
       type: 'module',
       name: 'demo1-worker',
     });
+    worker.onmessage = (e: MessageEvent<WorkerToMainMsg>) => {
+      if (e.data.type === 'ready') {
+        setIsWorkerReady(true);
+        console.log('[Main Thread] Worker 已就绪');
+        return;
+      }
+      setWorkerDuration(e.data.duration);
+      setWorkerRunning(false);
+    };
+    worker.onerror = () => setIsWorkerReady(false);
     workerRef.current = worker;
-    bindWorkerEvents(worker);
 
     return () => {
-      cancelTimesliceRef.current = true;
-
-      // 组件卸载时销毁 worker，释放线程资源
-      if (workerRef.current) {
-        workerRef.current.terminate();
-        workerRef.current = null;
-      }
+      worker.terminate();
+      cancelSliceRef.current = true;
+      console.log('[Main Thread] Worker 已斷開');
     };
-  }, [bindWorkerEvents]);
+  }, []);
 
   return (
     <div>
-      <Space style={{ marginBottom: 8 }}>
-        <Tag color={isWorkerReady ? 'green' : 'red'}>
-          {isWorkerReady ? 'Worker Ready' : 'Worker Stopped'}
-        </Tag>
-        <Button onClick={clearLogs}>清空日志</Button>
-      </Space>
+      <Typography.Title level={2}>Demo 1 — 主线程阻塞 vs Time Slice vs Web Worker</Typography.Title>
+      <Typography.Paragraph type="secondary">
+        三种方式各执行约 {TASK_MS / 1_000}s 的 CPU 密集任务，对比对 UI 响应的影响。
+        点击按钮后在下方输入框中尝试输入，感受主线程是否被阻塞。
+      </Typography.Paragraph>
+
       <Divider />
 
       <Row gutter={[16, 16]}>
-        <Col span={12}>
-          <Card title={<Typography.Title level={2}>创建一个 Web Worker </Typography.Title>}>
-            <Space>
-              <Input
-                placeholder="Type a message to send to worker"
-                value={payload}
-                onChange={(e) => setPayload(e.target.value)}
-                onPressEnter={handleSendMessage}
-              />
-              <Button
-                type="primary"
-                onClick={handleSendMessage}
-                disabled={!payload.trim() || !isWorkerReady}
-              >
-                Send Message to Worker
+        {/* ① 阻塞 */}
+        <Col span={8}>
+          <Card title="① 阻塞主线程">
+            <Space orientation="vertical" style={{ width: '100%' }}>
+              <Typography.Text type="secondary">
+                任务在主线程同步执行，期间 UI 完全冻结，输入框无法响应。
+              </Typography.Text>
+              <Input placeholder="运行时尝试在这里输入..." />
+              <Button type="primary" danger loading={blockRunning} onClick={runBlocking}>
+                运行 {TASK_MS / 1_000}s 阻塞任务
               </Button>
+              <Typography.Text>耗时：{fmt(blockDuration)}</Typography.Text>
             </Space>
-            <Divider>Message Log</Divider>
-            <ol>
-              {logs.map((log) => (
-                <li key={`${log.id}-${log.from}`}>
-                  <Typography.Text type={log.from === 'main' ? undefined : 'success'}>
-                    [{log.from}] {log.text}
-                  </Typography.Text>
-                </li>
-              ))}
-            </ol>
           </Card>
         </Col>
 
-        <Col span={12}>
-          <Card title={<Typography.Title level={2}>经典 Time Slice 案例</Typography.Title>}>
-            <Typography.Paragraph type="secondary">
-              目标：都执行约 5
-              秒的大任务。左边是同步阻塞（输入会卡住），右边是时间分片（输入可持续响应）。
-            </Typography.Paragraph>
-
-            <Divider />
-
-            <Typography.Title level={5}>1) 无 Time Slice（会阻塞输入）</Typography.Title>
-            <Space direction="vertical" style={{ width: '100%' }}>
-              <Input
-                placeholder="先点下面按钮，再尝试输入（会卡住）"
-                value={blockingInput}
-                onChange={(event) => setBlockingInput(event.target.value)}
-              />
-              <Button onClick={runBlockingCase}>开始 5s 阻塞任务</Button>
+        {/* ② Time Slice */}
+        <Col span={8}>
+          <Card title="② Time Slice">
+            <Space orientation="vertical" style={{ width: '100%' }}>
               <Typography.Text type="secondary">
-                阻塞任务耗时：{blockingDuration ? `${blockingDuration.toFixed(2)}ms` : '未执行'}
+                每隔 {SLICE_BUDGET_MS}ms 通过 <Typography.Text code>setTimeout(0)</Typography.Text>{' '}
+                让出主线程，输入框保持可用。
               </Typography.Text>
-            </Space>
-
-            <Divider />
-
-            <Typography.Title level={5}>2) 有 Time Slice（输入保持可响应）</Typography.Title>
-            <Space direction="vertical" style={{ width: '100%' }}>
-              <Input
-                placeholder="运行分片任务时可继续输入"
-                value={timesliceInput}
-                onChange={(event) => setTimesliceInput(event.target.value)}
-              />
-              <Button type="primary" onClick={runTimesliceCase} loading={isTimesliceRunning}>
-                开始 5s 分片任务
+              <Input placeholder="运行时可以在这里正常输入..." />
+              <Button type="primary" loading={sliceRunning} onClick={() => void runTimeSlice()}>
+                运行 {TASK_MS / 1_000}s 分片任务
               </Button>
-              <Typography.Text type="secondary">
-                分片任务耗时：{timesliceDuration ? `${timesliceDuration.toFixed(2)}ms` : '未完成'}
-              </Typography.Text>
+              <Progress percent={sliceProgress} status={sliceRunning ? 'active' : 'normal'} />
+              <Typography.Text>耗时：{fmt(sliceDuration)}</Typography.Text>
             </Space>
+          </Card>
+        </Col>
 
-            <Divider />
-            <Progress
-              percent={timesliceProgress}
-              status={isTimesliceRunning ? 'active' : 'normal'}
-            />
+        {/* ③ Worker */}
+        <Col span={8}>
+          <Card
+            title="③ Web Worker"
+            extra={
+              <Tag color={isWorkerReady ? 'green' : 'default'}>
+                {isWorkerReady ? 'Ready' : 'Loading'}
+              </Tag>
+            }
+          >
+            <Space orientation="vertical" style={{ width: '100%' }}>
+              <Typography.Text type="secondary">
+                任务在独立 Worker 线程执行，主线程完全不受影响，输入流畅。
+              </Typography.Text>
+              <Input placeholder="运行时可以在这里正常输入..." />
+              <Button
+                type="primary"
+                loading={workerRunning}
+                disabled={!isWorkerReady}
+                onClick={runWorkerTask}
+              >
+                运行 {TASK_MS / 1_000}s Worker 任务
+              </Button>
+              <Typography.Text>耗时：{fmt(workerDuration)}</Typography.Text>
+            </Space>
           </Card>
         </Col>
       </Row>
