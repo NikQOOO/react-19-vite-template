@@ -1,14 +1,14 @@
 import { Button, Input, Select, Space, Typography } from 'antd';
 import { useState } from 'react';
 
-import { ACTION_OPTIONS, COMPUTE_DURATION_OPTIONS, DEFAULT_PAYLOAD_BY_ACTION } from '../constants';
+import { ACTION_OPTIONS, DEFAULT_PAYLOAD_BY_ACTION } from '../constants';
 import type { RunTaskOptions } from '../hooks/useDemo2Worker';
 import type { WorkerAction } from '../types';
 
 /**
  * TaskComposer 的对外接口
  *
- * 表单内部状态（action / payload / durationMs）已内聚在组件内部，
+ * 表单内部状态（action / payload）已内聚在组件内部，
  * 父组件只需提供 Worker 是否就绪，以及发起任务的回调即可。
  */
 type TaskComposerProps = {
@@ -27,7 +27,6 @@ type TaskComposerProps = {
 export const TaskComposer = ({ isWorkerReady, runTask }: TaskComposerProps) => {
   const [action, setAction] = useState<WorkerAction>('compute');
   const [payload, setPayload] = useState(DEFAULT_PAYLOAD_BY_ACTION.compute);
-  const [durationMs, setDurationMs] = useState(COMPUTE_DURATION_OPTIONS[0].value);
 
   /** compute 任务使用时长参数；其余任务使用字符串 payload */
   const isCompute = action === 'compute';
@@ -44,7 +43,7 @@ export const TaskComposer = ({ isWorkerReady, runTask }: TaskComposerProps) => {
   /** 发起单个任务 */
   const handleRunTask = () => {
     if (isCompute) {
-      runTask('compute', { durationMs });
+      runTask('compute');
     } else {
       runTask(action, { payload });
     }
@@ -55,9 +54,9 @@ export const TaskComposer = ({ isWorkerReady, runTask }: TaskComposerProps) => {
    * 演示同一 Worker 内多任务切片交替执行、主线程不阻塞
    */
   const handleRunConcurrent = () => {
-    runTask('compute', { durationMs });
-    runTask('compute', { durationMs });
-    runTask('compute', { durationMs });
+    runTask('compute');
+    runTask('compute');
+    runTask('compute');
   };
 
   return (
@@ -71,15 +70,8 @@ export const TaskComposer = ({ isWorkerReady, runTask }: TaskComposerProps) => {
           onChange={handleActionChange}
         />
 
-        {/* compute 任务选时长；其余任务输入字符串 payload */}
-        {isCompute ? (
-          <Select
-            style={{ width: 120 }}
-            options={COMPUTE_DURATION_OPTIONS}
-            value={durationMs}
-            onChange={setDurationMs}
-          />
-        ) : (
+        {/* compute 任务直接发起；其余任务输入字符串 payload */}
+        {!isCompute && (
           <Input
             style={{ width: 360 }}
             value={payload}

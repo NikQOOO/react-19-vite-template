@@ -26,8 +26,6 @@ export type TaskEntry = {
 export type RunTaskOptions = {
   /** 字符串类任务（echo / uppercase）的输入内容 */
   payload?: string;
-  /** compute 任务的模拟运行时长（毫秒） */
-  durationMs?: number;
 };
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
@@ -60,12 +58,9 @@ export const useDemo2Worker = () => {
     const channel = channelRef.current;
     if (!channel || !isWorkerReady) return;
 
-    const { payload = '', durationMs = 2000 } = options;
+    const { payload = '' } = options;
     const uiId = uiTaskIdRef.current++;
-    const label =
-      action === 'compute'
-        ? `Compute (${(durationMs / 1000).toFixed(0)}s)`
-        : `${action}: "${payload}"`;
+    const label = action === 'compute' ? 'Compute' : `${action}: "${payload}"`;
 
     // 立即将任务追加到列表，提供即时的 UI 反馈
     setTasks((prev) => [
@@ -80,7 +75,6 @@ export const useDemo2Worker = () => {
     const executeTask = async () => {
       try {
         const result = await channel.request(action, payload, {
-          durationMs,
           // Worker 分配 id 后同步回调，提前建立 UI id → Worker id 映射
           onRequestId: (workerId) => {
             taskWorkerIdMap.current.set(uiId, workerId);
@@ -100,6 +94,10 @@ export const useDemo2Worker = () => {
               ? {
                   ...t,
                   status: 'done',
+                  label:
+                    action === 'compute'
+                      ? `Compute (${(result.duration / 1000).toFixed(1)}s)`
+                      : t.label,
                   result: result.data,
                   duration: result.duration,
                   progress: 100,
@@ -159,6 +157,7 @@ export const useDemo2Worker = () => {
   // ─── Worker 生命周期管理 ──────────────────────────────────────────────────────
 
   useEffect(() => {
+    // FIXME: 實際上線可刪除 effectAlive，改用 mountedRef 判斷即可；此处保留雙重標誌以防萬一，確保不會對已卸載的組件進行狀態更新。
     // 局部标志：仅追踪本次 effect 实例是否仍存活。
     // 不能复用 mountedRef，因为 StrictMode 下 cleanup 与下一次 mount 交错执行时，
     // mountedRef 会被下一次 mount 重置为 true，导致本次 effect 的异步回调误判为仍存活。

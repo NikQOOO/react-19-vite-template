@@ -24,8 +24,6 @@ type PendingRequest = {
 type RequestOptions = {
   /** 请求超时时长（毫秒），默认 60s */
   timeout?: number;
-  /** compute 任务的模拟时长（毫秒），会透传给 Worker */
-  durationMs?: number;
   /** compute 任务的进度回调（0–100） */
   onProgress?: (percent: number) => void;
   /**
@@ -51,14 +49,6 @@ type WorkerChannelOptions = {
  *  - 基于自增 id 的请求/响应匹配
  *  - compute 任务的进度回调与软取消
  *  - Worker 错误统一处理与所有挂起请求的批量拒绝
- *
- * 使用方式：
- * ```ts
- * const channel = new WorkerChannel();
- * await channel.ready;
- * const result = await channel.request('echo', 'hello');
- * channel.terminate();
- * ```
  */
 export class WorkerChannel {
   private worker: Worker;
@@ -124,7 +114,7 @@ export class WorkerChannel {
    */
   public request(action: WorkerAction, payload: string, options?: RequestOptions) {
     const id = this.requestId++;
-    const { timeout = DEFAULT_TIMEOUT, durationMs, onProgress, onRequestId } = options ?? {};
+    const { timeout = DEFAULT_TIMEOUT, onProgress, onRequestId } = options ?? {};
 
     // 同步暴露请求 id，调用方可在 Promise 完成前随时取消
     onRequestId?.(id);
@@ -144,7 +134,6 @@ export class WorkerChannel {
           action,
           payload,
           sentAt: Date.now(),
-          durationMs,
         } satisfies MainToWorkerMessage);
       },
     );

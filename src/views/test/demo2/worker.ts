@@ -21,13 +21,18 @@ const instantHandlers: Record<'echo' | 'uppercase', (payload: string) => string>
  *  1. 向主线程上报当前进度百分比（0–100）
  *  2. 通过 `setTimeout(0)` 让出事件循环，使 cancel 消息得以在切片间介入
  *
- * @param id        Worker 内部请求 id，与主线程对应
- * @param durationMs 预设的总模拟时长（毫秒）
+ * @param id Worker 内部请求 id，与主线程对应
  * @returns 'ok' 表示正常完成，'cancelled' 表示已被软取消
  */
-const processCompute = async (id: number, durationMs: number): Promise<'ok' | 'cancelled'> => {
+const processCompute = async (id: number): Promise<'ok' | 'cancelled'> => {
   /** 每个 CPU 切片的目标时长（毫秒） */
   const SLICE_MS = 100;
+  /**
+   * 模拟 CPU 密集型任务的总时长（毫秒）。
+   * 此为 Demo 写死的固定值，用于驱动进度计算与空转循环；
+   * 真实业务中应替换为实际的计算逻辑，耗时由计算量自然决定。
+   */
+  const DURATION_MS = 2_000;
   const start = performance.now();
 
   activeTasks.add(id);
@@ -43,12 +48,12 @@ const processCompute = async (id: number, durationMs: number): Promise<'ok' | 'c
     }
 
     const elapsed = performance.now() - start;
-    const percent = Math.min(100, (elapsed / durationMs) * 100);
+    const percent = Math.min(100, (elapsed / DURATION_MS) * 100);
 
     // 向主线程上报本切片结束后的累计进度
     self.postMessage({ type: 'progress', id, percent } satisfies WorkerToMainMessage);
 
-    if (elapsed >= durationMs) break;
+    if (elapsed >= DURATION_MS) break;
 
     // 让出事件循环——cancel / 新 request 消息可在此切片间隙介入处理
     await new Promise<void>((resolve) => setTimeout(resolve, 0));
@@ -83,18 +88,18 @@ self.onmessage = async (event: MessageEvent<MainToWorkerMessage>) => {
     return;
   }
 
-  const { id, action, payload, sentAt, durationMs = 2000 } = msg;
+  const { id, action, payload, sentAt } = msg;
 
   try {
     if (action === 'compute') {
       // 异步切片任务：支持进度上报与软取消
-      const status = await processCompute(id, durationMs);
+      const status = await processCompute(id);
       self.postMessage({
         type: 'response',
         id,
         ok: status === 'ok',
         action,
-        data: status === 'ok' ? `计算完成（耗时约 ${durationMs}ms）` : '任务已取消',
+        data: status === 'ok' ? '计算完成' : '任务已取消',
         duration: Date.now() - sentAt,
       } satisfies WorkerToMainMessage);
     } else {

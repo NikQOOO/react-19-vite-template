@@ -23,7 +23,7 @@ const Demo2 = () => {
 
       <Divider />
 
-      <Space direction="vertical" style={{ width: '100%' }} size="middle">
+      <Space orientation="vertical" style={{ width: '100%' }} size="middle">
         {/* 任务发起区：表单状态已内聚在 TaskComposer 内部 */}
         <Card size="small" title="发起任务">
           <TaskComposer isWorkerReady={isWorkerReady} runTask={runTask} />

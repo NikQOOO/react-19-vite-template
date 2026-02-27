@@ -23,8 +23,6 @@ export type MainToWorkerMessage =
       payload: string;
       /** 消息发出时的时间戳（`Date.now()`），用于计算往返耗时 */
       sentAt: number;
-      /** compute 任务的模拟时长（毫秒），缺省由 Worker 使用默认值 */
-      durationMs?: number;
     }
   | {
       type: 'cancel';
