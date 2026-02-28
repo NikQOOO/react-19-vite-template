@@ -1,5 +1,15 @@
 import type { MainToWorkerMessage, WorkerToMainMessage } from './types';
 
+type SchedulerLike = {
+  postTask?: (callback: () => void, options?: { priority?: string }) => Promise<unknown>;
+};
+
+declare global {
+  interface WindowOrWorkerGlobalScope {
+    scheduler?: SchedulerLike;
+  }
+}
+
 /** 正在运行的 compute 任务 id 集合，用于软取消标记 */
 const activeTasks = new Set<number>();
 
@@ -12,6 +22,23 @@ const activeTasks = new Set<number>();
 const instantHandlers: Record<'echo' | 'uppercase', (payload: string) => string> = {
   echo: (payload) => payload,
   uppercase: (payload) => payload.toUpperCase(),
+};
+
+/**
+ * 在 CPU 切片间让出调度机会：
+ *  - 优先使用 Scheduler API（background 优先级）
+ *  - 不支持时降级为 setTimeout(0)
+ */
+const yieldToEventLoop = async () => {
+  const maybeScheduler = (globalThis as typeof globalThis & { scheduler?: SchedulerLike })
+    .scheduler;
+
+  if (maybeScheduler?.postTask) {
+    await maybeScheduler.postTask(() => {}, { priority: 'background' });
+    return;
+  }
+
+  await new Promise<void>((resolve) => setTimeout(resolve, 0));
 };
 
 /**
@@ -56,7 +83,7 @@ const processCompute = async (id: number): Promise<'ok' | 'cancelled'> => {
     if (elapsed >= DURATION_MS) break;
 
     // 让出事件循环——cancel / 新 request 消息可在此切片间隙介入处理
-    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    await yieldToEventLoop();
   }
 
   activeTasks.delete(id);

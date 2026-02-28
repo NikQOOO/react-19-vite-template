@@ -2,7 +2,7 @@ import { message } from 'antd';
 import { useEffect, useRef, useState } from 'react';
 
 import type { WorkerAction } from '../types';
-import { WorkerChannel } from '../WorkerChannel';
+import { isWorkerChannelError, WORKER_CHANNEL_ERROR_CODE, WorkerChannel } from '../WorkerChannel';
 
 // ─── 类型定义 ──────────────────────────────────────────────────────────────────
 
@@ -110,7 +110,8 @@ export const useDemo2Worker = () => {
 
         const errMsg = error instanceof Error ? error.message : 'unknown error';
         // 取消操作属于正常流程，不触发 message.error 提示
-        const isCancelled = errMsg.includes('cancelled') || errMsg.includes('取消');
+        const isCancelled =
+          isWorkerChannelError(error) && error.code === WORKER_CHANNEL_ERROR_CODE.REQUEST_CANCELLED;
 
         setTasks((prev) =>
           prev.map((t) =>
@@ -157,7 +158,6 @@ export const useDemo2Worker = () => {
   // ─── Worker 生命周期管理 ──────────────────────────────────────────────────────
 
   useEffect(() => {
-    // FIXME: 實際上線可刪除 effectAlive，改用 mountedRef 判斷即可；此处保留雙重標誌以防萬一，確保不會對已卸載的組件進行狀態更新。
     // 局部标志：仅追踪本次 effect 实例是否仍存活。
     // 不能复用 mountedRef，因为 StrictMode 下 cleanup 与下一次 mount 交错执行时，
     // mountedRef 会被下一次 mount 重置为 true，导致本次 effect 的异步回调误判为仍存活。
