@@ -22,8 +22,8 @@ export const TransferLogList = ({ logs }: TransferLogListProps) => {
     <Timeline
       items={[...logs].reverse().map((log) => ({
         color: log.error ? 'red' : log.mode === 'transfer' ? 'blue' : 'green',
-        children: (
-          <Space direction="vertical" size={0}>
+        content: (
+          <Space orientation="vertical" size={0}>
             <Space size="small">
               <Tag color={log.mode === 'transfer' ? 'blue' : 'green'}>
                 {MODE_INFO[log.mode].label}

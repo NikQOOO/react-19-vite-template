@@ -34,7 +34,7 @@ const Demo3 = () => {
 
       <Divider />
 
-      <Space direction="vertical" style={{ width: '100%' }} size="middle">
+      <Space orientation="vertical" style={{ width: '100%' }} size="middle">
         {/* 对比结果表 */}
         <Card size="small" title="对比结果">
           <BenchmarkTable benchmarks={benchmarks} />
