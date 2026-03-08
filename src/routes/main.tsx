@@ -139,6 +139,15 @@ const MainRoutes: TRouteObject[] = [
           auth: false,
         },
       },
+      {
+        path: 'worker-2',
+        element: LazyLoad(lazy(() => import('@/views/demo/worker-2'))),
+        meta: {
+          key: 'worker2',
+          title: 'Worker Demo 2',
+          auth: false,
+        },
+      },
     ],
   },
 ];

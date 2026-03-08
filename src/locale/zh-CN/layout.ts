@@ -7,6 +7,9 @@ const layout: Record<string, string> = {
   'layout.menu.demo1': '演示1',
   'layout.menu.demo2': '演示2',
   'layout.menu.demo3': '演示3',
+  'layout.menu.demo': '演示',
+  'layout.menu.worker1': 'Worker 演示1',
+  'layout.menu.worker2': 'Worker 演示2',
 
   // 系统通用
   'layout.logout': '退出登录',

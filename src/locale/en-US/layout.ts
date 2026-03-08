@@ -7,6 +7,9 @@ const layout: Record<string, string> = {
   'layout.menu.demo1': 'Demo 1',
   'layout.menu.demo2': 'Demo 2',
   'layout.menu.demo3': 'Demo 3',
+  'layout.menu.demo': 'Demo',
+  'layout.menu.worker1': 'Worker Demo 1',
+  'layout.menu.worker2': 'Worker Demo 2',
 
   // System common
   'layout.logout': 'Logout',
