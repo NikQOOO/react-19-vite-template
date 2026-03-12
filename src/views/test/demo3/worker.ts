@@ -1,5 +1,7 @@
 import type { MainToWorkerMessage, WorkerToMainMessage } from './types';
 
+const post = (msg: WorkerToMainMessage) => self.postMessage(msg);
+
 /**
  * 计算 ArrayBuffer 的校验和
  *
@@ -16,35 +18,15 @@ const computeChecksum = (buffer: ArrayBuffer): number => {
   return sum >>> 0;
 };
 
-/**
- * Worker 消息处理入口
- *
- * 只处理两种消息：
- *  - `init`：握手请求，回复 ready 通知主线程 Worker 已就绪
- *  - `process`：接收 ArrayBuffer，计算校验和后返回结果与处理耗时
- *
- * Worker 无需关心数据是通过 Clone 还是 Transfer 方式传入的，
- * 两种方式到达 Worker 后的 ArrayBuffer 行为完全一致。
- */
+// Worker 加载即就绪，无需握手
+post({ type: 'ready' });
+
 self.onmessage = (event: MessageEvent<MainToWorkerMessage>) => {
-  const msg = event.data;
-
-  if (msg.type === 'init') {
-    self.postMessage({ type: 'ready' } satisfies WorkerToMainMessage);
-    return;
-  }
-
-  const { id, buffer } = msg;
+  const { id, buffer } = event.data;
 
   const start = performance.now();
   const checksum = computeChecksum(buffer);
   const processTime = performance.now() - start;
 
-  self.postMessage({
-    type: 'result',
-    id,
-    checksum,
-    byteLength: buffer.byteLength,
-    processTime,
-  } satisfies WorkerToMainMessage);
+  post({ type: 'result', id, checksum, byteLength: buffer.byteLength, processTime });
 };

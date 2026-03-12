@@ -134,8 +134,8 @@ bufferAfterSend: pending.bufferRef.byteLength;
 
 与 Demo2 一致，先定义判别联合类型，主线程与 Worker 共享同一协议：
 
-- `MainToWorkerMessage`：`init`（握手）| `process`（发送 buffer）
-- `WorkerToMainMessage`：`ready`（握手响应）| `result`（计算结果）
+- `MainToWorkerMessage`：`process`（发送 buffer）
+- `WorkerToMainMessage`：`ready`（加载即发）| `result`（计算结果）
 
 ### 5.6 资源回收闭环
 

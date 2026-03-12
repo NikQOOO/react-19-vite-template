@@ -1,0 +1,27 @@
+/** 消息类型 */
+export const MSG_TYPE = {
+  READY: 'WORKER 准备就绪',
+  NORMAL_STRING: '字符串',
+  EXPENSIVE_COMPUTE: '耗时计算（可切片）',
+  CANCEL_EXPENSIVE_COMPUTE: '取消耗时任务',
+  EXPENSIVE_COMPUTE_BLOCKING: '耗时计算（不可切片）',
+  ERROR: '错误',
+} as const;
+
+/** 可发送给 Worker 的消息类型列表 */
+export const ACTIONABLE_MSG_TYPES = [
+  MSG_TYPE.NORMAL_STRING,
+  MSG_TYPE.EXPENSIVE_COMPUTE,
+  MSG_TYPE.CANCEL_EXPENSIVE_COMPUTE,
+  MSG_TYPE.EXPENSIVE_COMPUTE_BLOCKING,
+] as const;
+
+/** WorkerChannel 错误码 */
+export const ErrorCode = {
+  TERMINATED: 'TERMINATED',
+  TIMEOUT: 'TIMEOUT',
+  CANCELLED: 'CANCELLED',
+  SEND_FAILED: 'SEND_FAILED',
+  READY_FAILED: 'READY_FAILED',
+  WORKER_FAILED: 'WORKER_FAILED',
+} as const;

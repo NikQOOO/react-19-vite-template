@@ -1,46 +1,20 @@
-import {
-  Button,
-  Card,
-  Col,
-  Divider,
-  Input,
-  Progress,
-  Row,
-  Select,
-  Space,
-  Tag,
-  Typography,
-} from 'antd';
+import { Button, Card, Col, Divider, Input, Row, Select, Space, Tag, Typography } from 'antd';
 import { useState } from 'react';
-
-interface IWorkerToMain {
-  msgType: (typeof MSG_TYPE)[keyof typeof MSG_TYPE];
-  content: string;
-  /** 0-100，针对 EXPENSIVE_COMPUTE 类型的日志 */
-  progress?: number;
-}
-
-interface IMainToWorker {
-  msgType: (typeof MSG_TYPE)[keyof typeof MSG_TYPE];
-  content: string;
-  /** 0-100，针对 EXPENSIVE_COMPUTE 类型的日志 */
-  progress?: number;
-}
-
-const MSG_TYPE = {
-  NORMAL_STRING: 0,
-  EXPENSIVE_COMPUTE: 1,
-  CONCURRENT_TASK: 2,
-};
+// components
+import MainLog from './components/MainLog';
+import WorkerLog from './components/WorkerLog';
+// hooks
+import useWorker from './hooks/useWorker';
+// constant
+import { MSG_TYPE } from './constants';
+// typing
+import type { ActionableMessageType } from './typing';
 
 const DemoWorker2 = () => {
-  const [workerReady, setWorkerReady] = useState(false);
+  const { workerReady, mainThreadLogs, workerLogs } = useWorker();
 
-  const [msgType, setMsgType] = useState(MSG_TYPE.NORMAL_STRING);
+  const [msgType, setMsgType] = useState<ActionableMessageType>(MSG_TYPE.NORMAL_STRING);
   const [message, setMessage] = useState('');
-
-  const [mainThreadLogs, setMainThreadLogs] = useState<IWorkerToMain[]>([]);
-  const [workerLogs, setWorkerLogs] = useState<IMainToWorker[]>([]);
 
   return (
     <div style={{ padding: 20 }}>
@@ -70,15 +44,15 @@ const DemoWorker2 = () => {
                     value: MSG_TYPE.NORMAL_STRING,
                   },
                   {
-                    label: 'CPU 密集型计算',
+                    label: 'CPU 密集型计算（可切片）',
                     value: MSG_TYPE.EXPENSIVE_COMPUTE,
                   },
                   {
-                    label: '并发任务示例',
-                    value: MSG_TYPE.CONCURRENT_TASK,
+                    label: 'CPU 密集型计算（不可切片）',
+                    value: MSG_TYPE.EXPENSIVE_COMPUTE_BLOCKING,
                   },
                 ]}
-                style={{ width: 150 }}
+                style={{ width: 250 }}
                 value={msgType}
                 onChange={(value) => setMsgType(value)}
               />
@@ -93,12 +67,19 @@ const DemoWorker2 = () => {
                   <Button type="primary">发送</Button>
                 </>
               )}
-              {msgType === MSG_TYPE.EXPENSIVE_COMPUTE && <Button type="primary">开始</Button>}
-              {msgType === MSG_TYPE.CONCURRENT_TASK && (
+              {msgType === MSG_TYPE.EXPENSIVE_COMPUTE && (
                 <>
                   <Button type="primary">开始</Button>
                   <Button type="primary" ghost>
-                    开始多任务
+                    开始3个（并发）
+                  </Button>
+                </>
+              )}
+              {msgType === MSG_TYPE.EXPENSIVE_COMPUTE_BLOCKING && (
+                <>
+                  <Button type="primary">开始</Button>
+                  <Button type="primary" ghost>
+                    开始3个（并发）
                   </Button>
                 </>
               )}
@@ -107,59 +88,15 @@ const DemoWorker2 = () => {
           </Card>
         </Col>
         <Col span={12}>
-          <Card title="主线程响应性验证">
-            <Input placeholder="Worker 处理消息时此输入框应保持流畅..." />
+          <Card title="主线程响应性验证" extra="Worker 处理消息时此输入框应保持流畅">
+            <Input placeholder="发起 compute " />
           </Card>
         </Col>
         <Col span={12}>
-          <Card title="主线程日志">
-            <Space orientation="vertical" style={{ width: '100%' }}>
-              {mainThreadLogs.map((log, index) => {
-                if (log.msgType === MSG_TYPE.NORMAL_STRING) {
-                  return (
-                    <Typography.Text key={index}>
-                      {log.content}
-                      <br />
-                    </Typography.Text>
-                  );
-                } else if (log.msgType === MSG_TYPE.EXPENSIVE_COMPUTE) {
-                  return <Progress key={index} percent={log.progress} status="active" />;
-                } else if (log.msgType === MSG_TYPE.CONCURRENT_TASK) {
-                  return (
-                    <Typography.Text key={index}>
-                      {log.content}
-                      <br />
-                    </Typography.Text>
-                  );
-                }
-              })}
-            </Space>
-          </Card>
+          <MainLog data={mainThreadLogs} />
         </Col>
         <Col span={12}>
-          <Card title="Worker日志">
-            <Space orientation="vertical" style={{ width: '100%' }}>
-              {mainThreadLogs.map((log, index) => {
-                if (log.msgType === MSG_TYPE.NORMAL_STRING) {
-                  return (
-                    <Typography.Text key={index}>
-                      {log.content}
-                      <br />
-                    </Typography.Text>
-                  );
-                } else if (log.msgType === MSG_TYPE.EXPENSIVE_COMPUTE) {
-                  return <Progress key={index} percent={log.progress} status="active" />;
-                } else if (log.msgType === MSG_TYPE.CONCURRENT_TASK) {
-                  return (
-                    <Typography.Text key={index}>
-                      {log.content}
-                      <br />
-                    </Typography.Text>
-                  );
-                }
-              })}
-            </Space>
-          </Card>
+          <WorkerLog data={workerLogs} />
         </Col>
       </Row>
     </div>

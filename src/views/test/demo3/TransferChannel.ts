@@ -111,14 +111,13 @@ export class TransferChannel {
       name: 'demo3-transfer-worker',
     });
 
-    this.ready = new Promise<void>((resolve, reject) => {
-      this._readyResolve = resolve;
-      this._readyReject = reject;
-    });
+    const { promise, resolve, reject } = Promise.withResolvers<void>();
+    this.ready = promise;
+    this._readyResolve = resolve;
+    this._readyReject = reject;
 
     this._readyTimeoutId = setTimeout(() => {
       this._settleReady(
-        'reject',
         createError(
           TRANSFER_CHANNEL_ERROR_CODE.READY_FAILED,
           `Worker 初始化超时（>${readyTimeout}ms）`,
@@ -130,25 +129,8 @@ export class TransferChannel {
       this._handleMessage(event.data);
     };
 
-    this._worker.onerror = () => {
-      if (this._isTerminated) return;
-      this._rejectAllPending(TRANSFER_CHANNEL_ERROR_CODE.WORKER_FAILED, 'Worker 运行时错误');
-      this._settleReady(
-        'reject',
-        createError(TRANSFER_CHANNEL_ERROR_CODE.READY_FAILED, 'Worker 在就绪前发生运行时错误'),
-      );
-    };
-
-    this._worker.onmessageerror = () => {
-      if (this._isTerminated) return;
-      this._rejectAllPending(TRANSFER_CHANNEL_ERROR_CODE.WORKER_FAILED, 'Worker 消息解析错误');
-      this._settleReady(
-        'reject',
-        createError(TRANSFER_CHANNEL_ERROR_CODE.READY_FAILED, 'Worker 在就绪前发生消息解析错误'),
-      );
-    };
-
-    this._worker.postMessage({ type: 'init' } satisfies MainToWorkerMessage);
+    this._worker.onerror = () => this._handleWorkerError('Worker 运行时错误');
+    this._worker.onmessageerror = () => this._handleWorkerError('Worker 消息解析错误');
   }
 
   /**
@@ -178,47 +160,43 @@ export class TransferChannel {
     }
 
     const id = this._requestId++;
+    const { promise, resolve, reject } = Promise.withResolvers<ProcessResult>();
 
-    return new Promise<ProcessResult>((resolve, reject) => {
-      const timeoutId = setTimeout(() => {
-        this._pending.delete(id);
-        reject(
-          createError(TRANSFER_CHANNEL_ERROR_CODE.REQUEST_TIMEOUT, `请求超时（>${timeout}ms）`),
-        );
-      }, timeout);
+    const timeoutId = setTimeout(() => {
+      this._pending.delete(id);
+      reject(
+        createError(TRANSFER_CHANNEL_ERROR_CODE.REQUEST_TIMEOUT, `请求超时（>${timeout}ms）`),
+      );
+    }, timeout);
 
-      this._pending.set(id, {
-        resolve,
-        reject,
-        timeoutId,
-        mode,
-        sentAt: performance.now(),
-        bufferRef: buffer,
-      });
-
-      try {
-        const message: MainToWorkerMessage = { type: 'process', id, buffer };
-
-        if (mode === 'transfer') {
-          // ⭐ 核心差异：第二参数传入 transfer list
-          // postMessage 后 buffer 的所有权转移给 Worker，
-          // 主线程侧 buffer.byteLength 立即变为 0（detached）。
-          this._worker.postMessage(message, [buffer]);
-        } else {
-          // 结构化克隆：浏览器完整复制一份数据给 Worker，
-          // 主线程侧 buffer 不受影响，仍可继续使用。
-          this._worker.postMessage(message);
-        }
-      } catch (error) {
-        clearTimeout(timeoutId);
-        this._pending.delete(id);
-        reject(
-          error instanceof Error
-            ? createError(TRANSFER_CHANNEL_ERROR_CODE.SEND_FAILED, error.message || undefined)
-            : createError(TRANSFER_CHANNEL_ERROR_CODE.SEND_FAILED),
-        );
-      }
+    this._pending.set(id, {
+      resolve,
+      reject,
+      timeoutId,
+      mode,
+      sentAt: performance.now(),
+      bufferRef: buffer,
     });
+
+    try {
+      const message: MainToWorkerMessage = { type: 'process', id, buffer };
+
+      if (mode === 'transfer') {
+        this._worker.postMessage(message, [buffer]);
+      } else {
+        this._worker.postMessage(message);
+      }
+    } catch (err) {
+      this._settlePending(
+        id,
+        createError(
+          TRANSFER_CHANNEL_ERROR_CODE.SEND_FAILED,
+          err instanceof Error ? err.message : undefined,
+        ),
+      );
+    }
+
+    return promise;
   }
 
   /** 终止 Worker 线程并拒绝所有挂起中的请求 */
@@ -227,7 +205,6 @@ export class TransferChannel {
     this._isTerminated = true;
 
     this._settleReady(
-      'reject',
       createError(TRANSFER_CHANNEL_ERROR_CODE.CHANNEL_TERMINATED, 'Worker 已被主线程终止'),
     );
     this._rejectAllPending(TRANSFER_CHANNEL_ERROR_CODE.CHANNEL_TERMINATED, 'Worker 已被主线程终止');
@@ -239,10 +216,8 @@ export class TransferChannel {
   }
 
   private _handleMessage(msg: WorkerToMainMessage) {
-    if (this._isTerminated) return;
-
     if (msg.type === 'ready') {
-      this._settleReady('resolve');
+      this._settleReady();
       return;
     }
 
@@ -263,24 +238,37 @@ export class TransferChannel {
   }
 
   private _rejectAllPending(code: TransferChannelErrorCode, message: string) {
-    for (const [, item] of this._pending) {
-      clearTimeout(item.timeoutId);
-      item.reject(createError(code, message));
+    for (const id of this._pending.keys()) {
+      this._settlePending(id, createError(code, message));
     }
-    this._pending.clear();
   }
 
-  private _settleReady(status: 'resolve' | 'reject', reason?: TransferChannelError) {
+  private _settlePending(id: number, error: TransferChannelError) {
+    const pending = this._pending.get(id);
+    if (!pending) return;
+    clearTimeout(pending.timeoutId);
+    this._pending.delete(id);
+    pending.reject(error);
+  }
+
+  private _settleReady(error?: TransferChannelError) {
     if (this._readyTimeoutId) {
       clearTimeout(this._readyTimeoutId);
       this._readyTimeoutId = null;
     }
-    if (status === 'resolve') {
-      this._readyResolve?.();
+    if (error) {
+      this._readyReject?.(error);
     } else {
-      this._readyReject?.(reason ?? createError(TRANSFER_CHANNEL_ERROR_CODE.READY_FAILED));
+      this._readyResolve?.();
     }
     this._readyReject = null;
     this._readyResolve = null;
+  }
+
+  private _handleWorkerError(detail: string) {
+    this._rejectAllPending(TRANSFER_CHANNEL_ERROR_CODE.WORKER_FAILED, detail);
+    this._settleReady(
+      createError(TRANSFER_CHANNEL_ERROR_CODE.READY_FAILED, `Worker 在就绪前发生${detail}`),
+    );
   }
 }

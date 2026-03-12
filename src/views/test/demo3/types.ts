@@ -10,14 +10,12 @@ export type TransferMode = 'clone' | 'transfer';
 
 // ─── 主线程 → Worker ───────────────────────────────────────────────────────────
 
-export type MainToWorkerMessage =
-  | { type: 'init' }
-  | {
-      /** 处理请求：主线程发送一个 ArrayBuffer，Worker 计算校验和后返回 */
-      type: 'process';
-      id: number;
-      buffer: ArrayBuffer;
-    };
+export type MainToWorkerMessage = {
+  /** 处理请求：主线程发送一个 ArrayBuffer，Worker 计算校验和后返回 */
+  type: 'process';
+  id: number;
+  buffer: ArrayBuffer;
+};
 
 // ─── Worker → 主线程 ───────────────────────────────────────────────────────────
 

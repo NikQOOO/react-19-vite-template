@@ -73,10 +73,10 @@ sequenceDiagram
 - 聚焦任务执行逻辑。
 - 不关心 React 状态。
 - 支持：
-  - `init` 就绪握手
   - `request` 任务执行
   - `cancel` 软取消
   - `progress` 进度上报
+  - 加载后自动发送 `ready` 通知主线程就绪
 
 这样 Worker 能专注于逻辑，无需关心页面渲染等其他内容。
 

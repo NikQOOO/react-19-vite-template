@@ -1,333 +1,174 @@
 import type { MainToWorkerMessage, WorkerAction, WorkerToMainMessage } from './types';
 
-// ─── 超时默认值 ────────────────────────────────────────────────────────────────
-
-/** 单次请求的默认超时时长（毫秒），超时后 Promise 将以错误拒绝 */
 const DEFAULT_TIMEOUT = 60_000;
-
-/** Worker 初始化握手的默认超时时长（毫秒） */
 const DEFAULT_READY_TIMEOUT = 5_000;
 
-/** WorkerChannel 错误码常量 */
-export const WORKER_CHANNEL_ERROR_CODE = {
-  /** WorkerChannel 已终止，无法继续发送请求 */
-  CHANNEL_TERMINATED: 'CHANNEL_TERMINATED',
-  /** 请求超时 */
-  REQUEST_TIMEOUT: 'REQUEST_TIMEOUT',
-  /** 任务已取消 */
-  REQUEST_CANCELLED: 'REQUEST_CANCELLED',
-  /** 消息发送失败，通常为 postMessage 抛出异常（如结构化克隆失败） */
-  REQUEST_SEND_FAILED: 'REQUEST_SEND_FAILED',
-  /** Worker 初始化失败 */
+// ─── Error ──────────────────────────────────────────────────────────────────────
+
+export const ErrorCode = {
+  TERMINATED: 'TERMINATED',
+  TIMEOUT: 'TIMEOUT',
+  CANCELLED: 'CANCELLED',
+  SEND_FAILED: 'SEND_FAILED',
   READY_FAILED: 'READY_FAILED',
-  /** Worker 执行失败 */
   WORKER_FAILED: 'WORKER_FAILED',
 } as const;
 
-export type WorkerChannelErrorCode =
-  (typeof WORKER_CHANNEL_ERROR_CODE)[keyof typeof WORKER_CHANNEL_ERROR_CODE];
-
-const DEFAULT_ERROR_MESSAGE: Record<WorkerChannelErrorCode, string> = {
-  CHANNEL_TERMINATED: 'WorkerChannel 已终止，无法继续发送请求',
-  REQUEST_TIMEOUT: '请求超时',
-  REQUEST_CANCELLED: '任务已取消',
-  REQUEST_SEND_FAILED: '消息发送失败',
-  READY_FAILED: 'Worker 初始化失败',
-  WORKER_FAILED: 'Worker 执行失败',
-};
-
-const TERMINATED_BY_MAIN_MESSAGE = 'Worker 已被主线程终止';
+export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];
 
 export class WorkerChannelError extends Error {
-  public readonly code: WorkerChannelErrorCode;
-
-  constructor(code: WorkerChannelErrorCode, message: string) {
-    super(message);
+  readonly code: ErrorCode;
+  constructor(code: ErrorCode, detail?: string) {
+    super(detail ?? code);
     this.name = 'WorkerChannelError';
     this.code = code;
   }
 }
 
-const createWorkerChannelError = (code: WorkerChannelErrorCode, detail?: string) =>
-  new WorkerChannelError(code, detail ?? DEFAULT_ERROR_MESSAGE[code]);
+export const isWorkerChannelError = (e: unknown): e is WorkerChannelError =>
+  e instanceof WorkerChannelError;
 
-export const isWorkerChannelError = (error: unknown): error is WorkerChannelError =>
-  error instanceof WorkerChannelError;
+// ─── Public Types ───────────────────────────────────────────────────────────────
 
-// ─── 内部类型 ──────────────────────────────────────────────────────────────────
+export type RequestResult = { data: string; duration: number; action: WorkerAction };
 
-/** 挂起中的请求上下文，保存 Promise 的 resolve/reject 及相关回调 */
-type PendingRequest = {
-  resolve: (value: { data: string; duration: number; action: WorkerAction }) => void;
-  reject: (reason?: unknown) => void;
-  /** 超时定时器句柄，请求完成后需主动清除以防内存泄漏 */
-  timeoutId: ReturnType<typeof setTimeout>;
-  /** compute 任务的进度回调（0–100），非 compute 任务可不传 */
-  onProgress?: (percent: number) => void;
-};
-
-/** `request()` 方法的可选配置项 */
-type RequestOptions = {
-  /** 请求超时时长（毫秒），默认 60s */
+export type RequestOptions = {
   timeout?: number;
-  /** compute 任务的进度回调（0–100） */
   onProgress?: (percent: number) => void;
-  /**
-   * 同步回调：在 Promise 开始前将本次请求的 id 暴露给调用方，
-   * 调用方可凭此 id 在任意时刻调用 `cancel()` 取消任务。
-   */
   onRequestId?: (id: number) => void;
 };
 
-/** `WorkerChannel` 构造函数的可选配置项 */
-type WorkerChannelOptions = {
-  /** Worker 初始化握手超时时长（毫秒），默认 5s */
-  readyTimeout?: number;
+// ─── Internal Types ─────────────────────────────────────────────────────────────
+
+type Pending = {
+  resolve: (v: RequestResult) => void;
+  reject: (e: unknown) => void;
+  timer: ReturnType<typeof setTimeout>;
+  onProgress?: (percent: number) => void;
 };
 
-/** `request()` 的成功结果类型 */
-type WorkerRequestResult = {
-  data: string;
-  duration: number;
-  action: WorkerAction;
-};
+// ─── WorkerChannel ──────────────────────────────────────────────────────────────
 
-// ─── 主类 ──────────────────────────────────────────────────────────────────────
-
-/**
- * WorkerChannel — Worker 通信信道
- *
- * 封装与 `worker.ts` 的全部通信细节：
- *  - 初始化握手及超时保护
- *  - 基于自增 id 的请求/响应匹配
- *  - compute 任务的进度回调与软取消
- *  - Worker 错误统一处理与所有挂起请求的批量拒绝
- */
 export class WorkerChannel {
-  private _worker: Worker;
-  /** 终止标记，防止 terminate 后继续发请求或重复清理 */
-  private _isTerminated = false;
-  /** 自增请求 id，用于唯一标识每一次 request/response 的对应关系 */
-  private _requestId = 1;
-  /** 所有未完成请求的上下文映射表，key 为请求 id */
-  private _pending = new Map<number, PendingRequest>();
-  /** ready Promise 的 resolve 函数，握手成功后调用，之后置 null 防止重复触发 */
-  private _readyResolve: (() => void) | null = null;
-  /** ready Promise 的 reject 函数，握手超时或 Worker 出错时调用 */
-  private _readyReject: ((reason?: unknown) => void) | null = null;
-  /** 初始化握手的超时定时器句柄 */
-  private _readyTimeoutId: ReturnType<typeof setTimeout> | null = null;
+  private worker: Worker;
+  private dead = false;
+  private seq = 1;
+  private pending = new Map<number, Pending>();
+  private readyTimer: ReturnType<typeof setTimeout> | null = null;
+  private readyFns: { resolve: () => void; reject: (e: unknown) => void };
 
-  /** 握手完成后 resolve 的 Promise，外部可 await 此字段确保 Worker 就绪后再发请求 */
-  public readonly ready: Promise<void>;
+  readonly ready: Promise<void>;
 
-  constructor(options?: WorkerChannelOptions) {
-    const readyTimeout = options?.readyTimeout ?? DEFAULT_READY_TIMEOUT;
+  constructor(url: URL, opts?: { readyTimeout?: number }) {
+    const readyMs = opts?.readyTimeout ?? DEFAULT_READY_TIMEOUT;
 
-    this._worker = new Worker(new URL('./worker.ts', import.meta.url), {
-      type: 'module',
-      name: 'demo2-worker',
-    });
+    this.worker = new Worker(url, { type: 'module' });
 
-    this.ready = new Promise<void>((resolve, reject) => {
-      this._readyResolve = resolve;
-      this._readyReject = reject;
-    });
+    const { promise, resolve, reject } = Promise.withResolvers<void>();
+    this.ready = promise;
+    this.readyFns = { resolve, reject };
 
-    // 防止 Worker 始终无响应，超时后主动拒绝 ready
-    this._readyTimeoutId = setTimeout(() => {
-      this._settleReady(
-        'reject',
-        this._error(
-          WORKER_CHANNEL_ERROR_CODE.READY_FAILED,
-          `Worker 初始化超时（>${readyTimeout}ms）`,
-        ),
-      );
-    }, readyTimeout);
-
-    this._worker.onmessage = (event: MessageEvent<WorkerToMainMessage>) => {
-      this._handleMessage(event.data);
-    };
-
-    // Worker 内部抛出未捕获异常时触发
-    this._worker.onerror = () => {
-      if (this._isTerminated) return;
-      this._rejectAllPending(WORKER_CHANNEL_ERROR_CODE.WORKER_FAILED, 'Worker 运行时错误');
-      this._settleReady(
-        'reject',
-        this._error(WORKER_CHANNEL_ERROR_CODE.READY_FAILED, 'Worker 在就绪前发生运行时错误'),
-      );
-    };
-
-    // Worker 收到无法反序列化的消息时触发（通常为 structured clone 失败）
-    this._worker.onmessageerror = () => {
-      if (this._isTerminated) return;
-      this._rejectAllPending(WORKER_CHANNEL_ERROR_CODE.WORKER_FAILED, 'Worker 消息解析错误');
-      this._settleReady(
-        'reject',
-        this._error(WORKER_CHANNEL_ERROR_CODE.READY_FAILED, 'Worker 在就绪前发生消息解析错误'),
-      );
-    };
-
-    // 发送初始化握手，Worker 收到后回复 ready
-    this._worker.postMessage({ type: 'init' } satisfies MainToWorkerMessage);
-  }
-
-  /**
-   * 向 Worker 发送一次任务请求
-   *
-   * @param action  任务类型（echo / uppercase / compute）
-   * @param payload 字符串类任务的输入内容，compute 任务传空字符串即可
-   * @param options 可选：超时、进度回调、id 回调
-   * @returns 包含 `data`、`duration`、`action` 的结果对象
-   */
-  public request(action: WorkerAction, payload: string, options?: RequestOptions) {
-    if (this._isTerminated) {
-      return Promise.reject(this._error(WORKER_CHANNEL_ERROR_CODE.CHANNEL_TERMINATED));
-    }
-
-    const id = this._requestId++;
-    const { timeout = DEFAULT_TIMEOUT, onProgress, onRequestId } = options ?? {};
-
-    return new Promise<WorkerRequestResult>((resolve, reject) => {
-      const timeoutId = setTimeout(() => {
-        this._pending.delete(id);
-        reject(this._error(WORKER_CHANNEL_ERROR_CODE.REQUEST_TIMEOUT, `请求超时（>${timeout}ms）`));
-      }, timeout);
-
-      this._pending.set(id, { resolve, reject, timeoutId, onProgress });
-
-      try {
-        // 在 pending 建立后再暴露 id，避免调用方“立即 cancel”时找不到挂起项
-        onRequestId?.(id);
-
-        this._worker.postMessage({
-          type: 'request',
-          id,
-          action,
-          payload,
-          sentAt: Date.now(),
-        } satisfies MainToWorkerMessage);
-      } catch (error) {
-        clearTimeout(timeoutId);
-        this._pending.delete(id);
-        reject(
-          error instanceof Error
-            ? this._error(WORKER_CHANNEL_ERROR_CODE.REQUEST_SEND_FAILED, error.message || undefined)
-            : this._error(WORKER_CHANNEL_ERROR_CODE.REQUEST_SEND_FAILED),
-        );
-      }
-    });
-  }
-
-  /**
-   * 取消一个正在运行的 compute 任务
-   *
-   * 立即拒绝对应的 Promise，并通知 Worker 执行软取消（下一切片检查点生效）。
-   * 若该 id 对应的任务不存在或已完成，调用此方法无任何副作用。
-   *
-   * @param id Worker 请求 id（由 `onRequestId` 回调获取）
-   */
-  public cancel(id: number) {
-    if (this._isTerminated) return;
-
-    const pending = this._pending.get(id);
-    if (!pending) return;
-
-    clearTimeout(pending.timeoutId);
-    this._pending.delete(id);
-    pending.reject(this._error(WORKER_CHANNEL_ERROR_CODE.REQUEST_CANCELLED));
-
-    this._worker.postMessage({ type: 'cancel', id } satisfies MainToWorkerMessage);
-  }
-
-  /**
-   * 终止 Worker 线程并拒绝所有挂起中的请求
-   *
-   * 调用后此 `WorkerChannel` 实例不可再用，应丢弃引用。
-   */
-  public terminate() {
-    if (this._isTerminated) return;
-    this._isTerminated = true;
-
-    this._settleReady(
-      'reject',
-      this._error(WORKER_CHANNEL_ERROR_CODE.CHANNEL_TERMINATED, TERMINATED_BY_MAIN_MESSAGE),
-    );
-    this._rejectAllPending(
-      WORKER_CHANNEL_ERROR_CODE.CHANNEL_TERMINATED,
-      TERMINATED_BY_MAIN_MESSAGE,
+    this.readyTimer = setTimeout(
+      () => this.settleReady(this.err(ErrorCode.READY_FAILED, `ready timeout >${readyMs}ms`)),
+      readyMs,
     );
 
-    this._worker.onmessage = null;
-    this._worker.onerror = null;
-    this._worker.onmessageerror = null;
-    this._worker.terminate();
+    this.worker.onmessage = ({ data }: MessageEvent<WorkerToMainMessage>) => this.onMsg(data);
+    this.worker.onerror = () => this.onFatal('worker runtime error');
+    this.worker.onmessageerror = () => this.onFatal('message deserialization failed');
   }
 
-  /** 处理来自 Worker 的消息，按 type 分发到对应逻辑 */
-  private _handleMessage(message: WorkerToMainMessage) {
-    if (this._isTerminated) return;
+  request(action: WorkerAction, payload: string, opts?: RequestOptions): Promise<RequestResult> {
+    if (this.dead) return Promise.reject(this.err(ErrorCode.TERMINATED));
 
-    if (message.type === 'ready') {
-      this._settleReady('resolve');
-      return;
+    const id = this.seq++;
+    const { timeout = DEFAULT_TIMEOUT, onProgress, onRequestId } = opts ?? {};
+
+    const { promise, resolve, reject } = Promise.withResolvers<RequestResult>();
+
+    const timer = setTimeout(() => {
+      this.pending.delete(id);
+      reject(this.err(ErrorCode.TIMEOUT, `timeout >${timeout}ms`));
+    }, timeout);
+
+    this.pending.set(id, { resolve, reject, timer, onProgress });
+
+    try {
+      onRequestId?.(id);
+      this.send({ type: 'request', id, action, payload, sentAt: Date.now() });
+    } catch (e) {
+      this.evict(id, this.err(ErrorCode.SEND_FAILED, e instanceof Error ? e.message : undefined));
     }
 
-    if (message.type === 'progress') {
-      // 将进度透传给调用方注册的回调，不影响 Promise 状态
-      this._pending.get(message.id)?.onProgress?.(message.percent);
-      return;
-    }
-
-    // 处理 response：取出挂起项，结算 Promise
-    const pendingItem = this._pending.get(message.id);
-    if (!pendingItem) return;
-
-    clearTimeout(pendingItem.timeoutId);
-    this._pending.delete(message.id);
-
-    if (!message.ok) {
-      pendingItem.reject(this._error(WORKER_CHANNEL_ERROR_CODE.WORKER_FAILED, message.error));
-      return;
-    }
-
-    pendingItem.resolve({
-      action: message.action,
-      duration: message.duration,
-      data: message.data ?? '',
-    });
+    return promise;
   }
 
-  /** 批量拒绝所有挂起中的请求，通常在 Worker 异常终止时调用 */
-  private _rejectAllPending(code: WorkerChannelErrorCode, message: string) {
-    for (const [, item] of this._pending) {
-      clearTimeout(item.timeoutId);
-      item.reject(this._error(code, message));
-    }
-    this._pending.clear();
+  cancel(id: number) {
+    if (!this.pending.has(id)) return;
+    this.evict(id, this.err(ErrorCode.CANCELLED));
+    this.send({ type: 'cancel', id });
   }
 
-  /** 结算 ready Promise（resolve/reject）并统一清理相关资源 */
-  private _settleReady(status: 'resolve' | 'reject', reason?: WorkerChannelError) {
-    // 防止重复结算（如 Worker 多次发送 ready 或多次发生错误）
-    if (this._readyTimeoutId) {
-      clearTimeout(this._readyTimeoutId);
-      this._readyTimeoutId = null;
-    }
+  terminate() {
+    if (this.dead) return;
+    this.dead = true;
 
-    if (status === 'resolve') {
-      this._readyResolve?.();
+    this.settleReady(this.err(ErrorCode.TERMINATED));
+    for (const id of [...this.pending.keys()]) this.evict(id, this.err(ErrorCode.TERMINATED));
+
+    this.worker.onmessage = this.worker.onerror = this.worker.onmessageerror = null;
+    this.worker.terminate();
+  }
+
+  // ─── Internals ────────────────────────────────────────────────────────────────
+
+  private onMsg(msg: WorkerToMainMessage) {
+    if (msg.type === 'ready') return this.settleReady();
+    if (msg.type === 'progress') return void this.pending.get(msg.id)?.onProgress?.(msg.percent);
+
+    const p = this.pending.get(msg.id);
+    if (!p) return;
+
+    if (!msg.ok) return this.evict(msg.id, this.err(ErrorCode.WORKER_FAILED, msg.error));
+
+    clearTimeout(p.timer);
+    this.pending.delete(msg.id);
+    p.resolve({ action: msg.action, duration: msg.duration, data: msg.data });
+  }
+
+  private evict(id: number, error: WorkerChannelError) {
+    const p = this.pending.get(id);
+    if (!p) return;
+    clearTimeout(p.timer);
+    this.pending.delete(id);
+    p.reject(error);
+  }
+
+  private settleReady(error?: WorkerChannelError) {
+    if (this.readyTimer) {
+      clearTimeout(this.readyTimer);
+      this.readyTimer = null;
+    }
+    if (error) {
+      this.readyFns.reject(error);
     } else {
-      this._readyReject?.(reason ?? this._error(WORKER_CHANNEL_ERROR_CODE.READY_FAILED));
+      this.readyFns.resolve();
     }
-
-    this._readyReject = null;
-    this._readyResolve = null;
+    this.readyFns = { resolve: () => {}, reject: () => {} };
   }
 
-  /** 统一错误对象创建，减少重复样板代码 */
-  private _error(code: WorkerChannelErrorCode, detail?: string) {
-    return createWorkerChannelError(code, detail);
+  private onFatal(detail: string) {
+    for (const id of [...this.pending.keys()]) {
+      this.evict(id, this.err(ErrorCode.WORKER_FAILED, detail));
+    }
+    this.settleReady(this.err(ErrorCode.READY_FAILED, detail));
+  }
+
+  private send(msg: MainToWorkerMessage) {
+    this.worker.postMessage(msg);
+  }
+
+  private err(code: ErrorCode, detail?: string) {
+    return new WorkerChannelError(code, detail);
   }
 }
