@@ -1,0 +1,108 @@
+﻿.container {
+  position: relative;
+  width: 100%;
+}
+
+.dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  background: var(--card-bg, #ffffff);
+  border: 1px solid var(--border-color, #e5e7eb);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px var(--shadow-color, rgba(0, 0, 0, 0.1));
+  overflow: hidden;
+}
+
+.list {
+  max-height: 240px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb, #d6d9e4) var(--scrollbar-track, #f0f0f0);
+}
+
+.list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.list::-webkit-scrollbar-track {
+  background: var(--scrollbar-track, #f0f0f0);
+}
+
+.list::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb, #d6d9e4);
+  border-radius: 2px;
+}
+
+.option {
+  padding: 10px 16px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  border-bottom: 1px solid var(--border-color, #f0f0f0);
+}
+
+.option:last-of-type {
+  border-bottom: none;
+}
+
+.option:hover {
+  background: var(--hover-bg, rgba(57, 197, 187, 0.1));
+}
+
+.sentinel {
+  height: 1px;
+}
+
+/* 翻页追加 loading，固定在列表底部 */
+.moreLoading {
+  display: flex;
+  justify-content: center;
+  padding: 8px 0;
+}
+
+/* Input suffix 固定宽度占位，防止 loading 出现 / 消失时的布局偏移 */
+.suffixSpin {
+  display: inline-flex;
+  align-items: center;
+  width: 14px;
+}
+
+/* ── 骨架屏 ── */
+
+.skeleton {
+  padding: 6px 16px 8px;
+}
+
+.skeletonItem {
+  height: 14px;
+  border-radius: 3px;
+  margin: 10px 0;
+  background: linear-gradient(
+    90deg,
+    var(--scrollbar-track, #f0f0f0) 25%,
+    var(--scrollbar-thumb, #d6d9e4) 50%,
+    var(--scrollbar-track, #f0f0f0) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease infinite;
+}
+
+/* 错落宽度让骨架屏更自然，避免三条完全相同显得机械 */
+.skeletonItem:nth-child(2) {
+  width: 75%;
+}
+
+.skeletonItem:nth-child(3) {
+  width: 88%;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
