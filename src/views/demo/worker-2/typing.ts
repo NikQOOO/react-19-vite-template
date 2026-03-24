@@ -11,12 +11,13 @@ export type MainToWorkerMessage = {
   id: number;
   payload?: string;
   taskCount?: number;
+  time: number;
 };
 
 export type WorkerToMainMessage = {
   msgType: WorkerMessageType;
   id: number;
-  duration: number;
+  duration?: number;
   payload?: string;
   progress?: number;
 };

@@ -52,7 +52,7 @@ const DemoWorker2 = () => {
                     value: MSG_TYPE.EXPENSIVE_COMPUTE_BLOCKING,
                   },
                 ]}
-                style={{ width: 250 }}
+                style={{ width: 230 }}
                 value={msgType}
                 onChange={(value) => setMsgType(value)}
               />
@@ -60,7 +60,6 @@ const DemoWorker2 = () => {
                 <>
                   <Input
                     placeholder="输入要发送给 Worker 的字符串"
-                    style={{ width: 300 }}
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
                   />
@@ -88,8 +87,15 @@ const DemoWorker2 = () => {
           </Card>
         </Col>
         <Col span={12}>
-          <Card title="主线程响应性验证" extra="Worker 处理消息时此输入框应保持流畅">
-            <Input placeholder="发起 compute " />
+          <Card
+            title="主线程响应性验证"
+            extra={
+              <Typography.Text type="secondary">
+                Worker 运算期间此输入框应始终可输入
+              </Typography.Text>
+            }
+          >
+            <Input placeholder="尝试输入，验证主线程响应性" />
           </Card>
         </Col>
         <Col span={12}>
