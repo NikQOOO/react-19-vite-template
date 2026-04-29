@@ -17,8 +17,7 @@ const DEFAULT_READY_TIMEOUT = 5_000;
 /** 单次请求的默认超时时长 6s，超时后 Promise 将以错误拒绝 */
 const DEFAULT_TIMEOUT = 60_000;
 
-
-const WORKER_CHANNEL_ERROR_CODE = {}
+const WORKER_CHANNEL_ERROR_CODE = {};
 
 /**
  * WorkerChannel — Worker 通信信道
@@ -55,13 +54,22 @@ class WorkerChannel {
     this._readyResolve = resolve;
     this._readyReject = reject;
 
-    this._readyTimeoutId = setTimeout(() => {
-
-    }, initTimeout);
+    this._readyTimeoutId = setTimeout(() => {}, initTimeout);
   }
 
-  private _handleMessage(message: WorkerToMainMessage) {}
-
+  private _handleMessage(message: WorkerToMainMessage) {
+    console.log(
+      message,
+      WORKER_CHANNEL_ERROR_CODE,
+      DEFAULT_TIMEOUT,
+      this._worker,
+      this._pendingRequests,
+      this._requestId,
+      this._readyResolve,
+      this._readyReject,
+      this._readyTimeoutId,
+    );
+  }
 }
 
 export default WorkerChannel;
