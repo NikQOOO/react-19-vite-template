@@ -10,6 +10,7 @@ const layout: Record<string, string> = {
   'layout.menu.demo': '演示',
   'layout.menu.worker1': 'Worker 演示1',
   'layout.menu.worker2': 'Worker 演示2',
+  'layout.menu.react19Concurrent': 'React 19 并发演示',
 
   // 系统通用
   'layout.logout': '退出登录',

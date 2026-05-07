@@ -10,6 +10,7 @@ const layout: Record<string, string> = {
   'layout.menu.demo': 'Demo',
   'layout.menu.worker1': 'Worker Demo 1',
   'layout.menu.worker2': 'Worker Demo 2',
+  'layout.menu.react19Concurrent': 'React 19 Concurrent Demo',
 
   // System common
   'layout.logout': 'Logout',

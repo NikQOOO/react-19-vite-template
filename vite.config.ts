@@ -1,4 +1,5 @@
-import react from '@vitejs/plugin-react';
+import babel from '@rolldown/plugin-babel';
+import react, { reactCompilerPreset } from '@vitejs/plugin-react';
 import dns from 'node:dns';
 import path from 'path';
 import externalGlobals from 'rollup-plugin-external-globals';
@@ -43,11 +44,8 @@ export default defineConfig(({ mode }) => {
       },
     },
     plugins: [
-      react({
-        babel: {
-          plugins: [['babel-plugin-react-compiler']],
-        },
-      }),
+      react(),
+      babel({ presets: [reactCompilerPreset()] }),
       viteCompression({
         threshold: 1024 * 10, // 压缩阈值
         deleteOriginFile: false,

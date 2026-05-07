@@ -148,6 +148,15 @@ const MainRoutes: TRouteObject[] = [
           auth: false,
         },
       },
+      {
+        path: 'react-19-concurrent',
+        element: LazyLoad(lazy(() => import('@/views/demo/react-19-concurrent'))),
+        meta: {
+          key: 'react19Concurrent',
+          title: 'React 19 Concurrent Demo',
+          auth: false,
+        },
+      },
     ],
   },
 ];
